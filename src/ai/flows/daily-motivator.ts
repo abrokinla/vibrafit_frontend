@@ -14,7 +14,7 @@ import {z} from 'genkit';
 
 const DailyMotivationInputSchema = z.object({
   userId: z.string().describe('The ID of the user.'),
-  goal: z.string().describe('The user\u0027s fitness goal.'),
+  goal: z.string().describe('The user\u0027s fitness goal. Can be empty if not set yet.'), // Updated description
   progress: z.string().describe('The user\u0027s current progress towards their goal.'),
 });
 export type DailyMotivationInput = z.infer<typeof DailyMotivationInputSchema>;
@@ -25,7 +25,11 @@ const DailyMotivationOutputSchema = z.object({
 export type DailyMotivationOutput = z.infer<typeof DailyMotivationOutputSchema>;
 
 export async function getDailyMotivation(input: DailyMotivationInput): Promise<DailyMotivationOutput> {
-  return dailyMotivationFlow(input);
+    // Handle the case where the goal might be empty during onboarding
+    if (!input.goal) {
+        return { message: "Welcome! Set your fitness goal to get personalized motivation." };
+    }
+    return dailyMotivationFlow(input);
 }
 
 const prompt = ai.definePrompt({
@@ -33,7 +37,7 @@ const prompt = ai.definePrompt({
   input: {
     schema: z.object({
       userId: z.string().describe('The ID of the user.'),
-      goal: z.string().describe('The user\u0027s fitness goal.'),
+      goal: z.string().describe('The user\u0027s fitness goal.'), // Keep schema same, logic handles empty string
       progress: z.string().describe('The user\u0027s current progress towards their goal.'),
     }),
   },
@@ -59,6 +63,7 @@ const dailyMotivationFlow = ai.defineFlow<
     outputSchema: DailyMotivationOutputSchema,
   },
   async input => {
+    // Input validation is handled by the exported function, assume goal exists here
     const {output} = await prompt(input);
     return output!;
   }

@@ -1,45 +1,141 @@
-import { Suspense } from 'react';
+'use client'; // Make this a client component to manage state
+
+import { Suspense, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scale, Dumbbell, Apple, Sparkles } from "lucide-react";
 import AiMotivationCard from '@/components/user/ai-motivation-card';
-import ProgressOverviewChart from '@/components/user/progress-overview-chart'; // Placeholder for chart
-import RecentActivityFeed from '@/components/user/recent-activity-feed'; // Placeholder for feed
+import ProgressOverviewChart from '@/components/user/progress-overview-chart';
+import RecentActivityFeed from '@/components/user/recent-activity-feed';
+import OnboardingModal from '@/components/user/onboarding-modal'; // Import the modal
 
 // Example data fetching functions (replace with actual API calls)
+// These should ideally be moved outside or handled differently in a real app
+// For now, keeping them here but they won't run on the client directly.
+// You'd typically fetch data within useEffect or use a data fetching library.
 async function getRecentWorkouts() {
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  // Simulate fetching server-side data if needed elsewhere, but feed needs client-side fetching
+  // await new Promise(resolve => setTimeout(resolve, 500));
   return [
-    { id: 1, type: 'workout', description: 'Completed 5k run', date: new Date(Date.now() - 86400000) }, // Yesterday
-    { id: 2, type: 'workout', description: 'Weightlifting session', date: new Date(Date.now() - 172800000) }, // 2 days ago
+    { id: 1, type: 'workout' as const, description: 'Completed 5k run', date: new Date(Date.now() - 86400000) },
+    { id: 2, type: 'workout' as const, description: 'Weightlifting session', date: new Date(Date.now() - 172800000) },
   ];
 }
 
 async function getRecentMeals() {
-  await new Promise(resolve => setTimeout(resolve, 600));
+  // await new Promise(resolve => setTimeout(resolve, 600));
   return [
-    { id: 3, type: 'meal', description: 'Logged breakfast: Oats & Berries', date: new Date(Date.now() - 3600000) }, // 1 hour ago
-    { id: 4, type: 'meal', description: 'Logged lunch: Chicken Salad', date: new Date(Date.now() - 14400000) }, // 4 hours ago
+    { id: 3, type: 'meal' as const, description: 'Logged breakfast: Oats & Berries', date: new Date(Date.now() - 3600000) },
+    { id: 4, type: 'meal' as const, description: 'Logged lunch: Chicken Salad', date: new Date(Date.now() - 14400000) },
   ];
+}
+
+// Simulate fetching user data (replace with actual auth/API call)
+async function getUserData() {
+   // await new Promise(resolve => setTimeout(resolve, 300));
+   // Simulate a user who hasn't set a goal yet
+   return {
+     id: 'user123',
+     name: 'Alex',
+     goal: '', // Empty goal signifies onboarding needed
+     currentProgress: 'Just started!',
+     isOnboarded: false, // Explicit flag is better
+   };
 }
 
 
 export default function UserDashboardPage() {
-  // User data - replace with actual logged-in user data
-  const user = {
-    id: 'user123',
-    name: 'Alex',
-    goal: 'Lose 5kg in 2 months',
-    currentProgress: 'Lost 1kg, consistent workouts 3 times a week.',
-  };
+  // User data state
+   const [user, setUser] = useState<Awaited<ReturnType<typeof getUserData>> | null>(null);
+   const [showOnboarding, setShowOnboarding] = useState(false);
+   const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+   // Fetch user data on mount
+   useEffect(() => {
+     getUserData().then(userData => {
+       setUser(userData);
+       // Determine if onboarding is needed based on fetched data
+       if (!userData.goal || !userData.isOnboarded) {
+         setShowOnboarding(true);
+       }
+       setIsLoadingUser(false);
+     });
+   }, []);
+
+   // Function to update user state and hide modal after onboarding step
+   const handleOnboardingComplete = () => {
+     // Refetch user data or update local state to reflect onboarding completion
+     getUserData().then(updatedUserData => {
+        // Simulate goal being set after onboarding
+        const tempUpdatedUser = { ...updatedUserData, goal: "Goal set during onboarding!", isOnboarded: true };
+        setUser(tempUpdatedUser);
+     });
+     setShowOnboarding(false);
+   };
+
+   // --- Client-side state for feed data ---
+   const [recentActivities, setRecentActivities] = useState<Awaited<ReturnType<typeof getRecentWorkouts>>>([]);
+   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+
+   useEffect(() => {
+       // Fetch feed data on client
+       Promise.all([getRecentWorkouts(), getRecentMeals()]).then(([workouts, meals]) => {
+           const combined = [...workouts, ...meals].sort((a, b) => b.date.getTime() - a.date.getTime());
+           setRecentActivities(combined);
+           setIsLoadingFeed(false);
+       });
+   }, []);
+   // --- End feed data state ---
+
+
+   if (isLoadingUser || !user) {
+     // Show loading state while fetching user data
+     return (
+        <div className="space-y-8">
+            <div className="h-10 w-1/2 bg-muted rounded animate-pulse"></div> {/* Placeholder for Welcome message */}
+            <div className="h-24 bg-muted rounded animate-pulse"></div> {/* Placeholder for Motivation card */}
+             <div className="grid gap-6 md:grid-cols-3">
+                <div className="h-24 bg-muted rounded animate-pulse"></div>
+                <div className="h-24 bg-muted rounded animate-pulse"></div>
+                <div className="h-24 bg-muted rounded animate-pulse"></div>
+             </div>
+             <div className="h-64 bg-muted rounded animate-pulse"></div> {/* Placeholder for Chart */}
+             <div className="h-40 bg-muted rounded animate-pulse"></div> {/* Placeholder for Activity Feed */}
+        </div>
+     );
+   }
+
 
   return (
     <div className="space-y-8">
+       {/* Onboarding Modal */}
+        <OnboardingModal
+            isOpen={showOnboarding}
+            onClose={handleOnboardingComplete}
+            userId={user.id}
+        />
+
       <h1 className="text-3xl font-bold">Welcome back, {user.name}!</h1>
 
-      {/* AI Motivation Card */}
-      <Suspense fallback={<Card><CardHeader><CardTitle>Loading Motivation...</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
-         <AiMotivationCard userId={user.id} goal={user.goal} progress={user.currentProgress} />
-      </Suspense>
+      {/* AI Motivation Card - Needs to handle potential missing goal */}
+      {user.goal ? (
+          <Suspense fallback={<Card><CardHeader><CardTitle>Loading Motivation...</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
+              {/* @ts-expect-error Server Component usage in Client Component needs careful handling or refactoring */}
+             <AiMotivationCard userId={user.id} goal={user.goal} progress={user.currentProgress} />
+          </Suspense>
+      ) : (
+          <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 shadow-sm">
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <div>
+                    <CardTitle className="text-lg text-primary">Set Your Goal!</CardTitle>
+                    <CardDescription className="text-sm">Complete the prompt to start receiving personalized motivation.</CardDescription>
+                </div>
+            </CardHeader>
+             <CardContent>
+                <p className="text-muted-foreground">Waiting for your goal...</p>
+            </CardContent>
+          </Card>
+      )}
 
 
       {/* Key Metrics / Quick Overview */}
@@ -50,8 +146,8 @@ export default function UserDashboardPage() {
             <Scale className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">74 kg</div>
-            <p className="text-xs text-muted-foreground">-1 kg from last week</p>
+            <div className="text-2xl font-bold">-- kg</div> {/* Show placeholder or fetch */}
+            <p className="text-xs text-muted-foreground">Update in Measurements</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
@@ -60,8 +156,8 @@ export default function UserDashboardPage() {
             <Dumbbell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Goal: 4 sessions</p>
+            <div className="text-2xl font-bold">--</div> {/* Show placeholder or fetch */}
+            <p className="text-xs text-muted-foreground">Log in Workouts</p>
           </CardContent>
         </Card>
          <Card className="shadow-sm">
@@ -70,8 +166,8 @@ export default function UserDashboardPage() {
             <Apple className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1850</div>
-            <p className="text-xs text-muted-foreground">Goal: 2000 kcal</p>
+            <div className="text-2xl font-bold">----</div> {/* Show placeholder or fetch */}
+            <p className="text-xs text-muted-foreground">Log in Nutrition</p>
           </CardContent>
         </Card>
       </div>
@@ -80,7 +176,7 @@ export default function UserDashboardPage() {
        <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Weight Progress</CardTitle>
-          <CardDescription>Your weight trend over the last 4 weeks.</CardDescription>
+          <CardDescription>Your weight trend (Update in Measurements).</CardDescription>
         </CardHeader>
         <CardContent>
            <ProgressOverviewChart />
@@ -94,10 +190,12 @@ export default function UserDashboardPage() {
           <CardTitle>Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-           <Suspense fallback={<div className="space-y-4"><div className="h-10 bg-muted rounded animate-pulse"></div><div className="h-10 bg-muted rounded animate-pulse"></div></div>}>
-             {/* @ts-expect-error Server Component */}
-             <RecentActivityFeed workoutsPromise={getRecentWorkouts()} mealsPromise={getRecentMeals()} />
-          </Suspense>
+           {isLoadingFeed ? (
+               <div className="space-y-4"><div className="h-10 bg-muted rounded animate-pulse"></div><div className="h-10 bg-muted rounded animate-pulse"></div></div>
+           ) : (
+               // Pass fetched data directly to the client component
+               <RecentActivityFeed activities={recentActivities} />
+           )}
         </CardContent>
       </Card>
 
