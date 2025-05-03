@@ -1,3 +1,4 @@
+// src/app/signup/page.tsx
 "use client";
 
 import { useState } from 'react';
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup components
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 
@@ -13,6 +15,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<'user' | 'trainer'>('user'); // Add state for role selection
   const [error, setError] = useState('');
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -25,20 +28,27 @@ export default function SignUpPage() {
     }
 
     // Basic validation
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+    if (!email || !password || !role) {
+      setError('Please fill in all fields and select a role.');
       return;
     }
 
     // TODO: Implement actual Firebase authentication (createUserWithEmailAndPassword) here
-    console.log('Attempting sign up with:', { email });
+    // TODO: Store the selected 'role' in the user's profile in Firestore or Firebase Auth custom claims
+    console.log('Attempting sign up with:', { email, role });
 
     // Simulate successful sign up for now - replace with actual auth logic
     const simulatedSuccess = true; // Replace with actual auth check
 
     if (simulatedSuccess) {
-       // Redirect to user dashboard after successful sign up
-       router.push('/user/dashboard');
+       // Redirect based on role after successful sign up
+       if (role === 'trainer') {
+         // Optionally, redirect trainers to a specific onboarding or their dashboard
+         // For now, let's redirect them to the trainer dashboard directly
+         router.push('/trainer/dashboard');
+       } else {
+         router.push('/user/dashboard');
+       }
     } else {
       setError('Failed to create account. Please try again.'); // Simulate auth failure
     }
@@ -53,6 +63,26 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp} className="space-y-4">
+            {/* Role Selection */}
+             <div className="space-y-2">
+               <Label>Sign up as a:</Label>
+                <RadioGroup
+                    defaultValue="user"
+                    value={role}
+                    onValueChange={(value: 'user' | 'trainer') => setRole(value)}
+                    className="flex space-x-4 pt-2"
+                 >
+                    <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="user" id="role-user" />
+                    <Label htmlFor="role-user">User</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="trainer" id="role-trainer" />
+                    <Label htmlFor="role-trainer">Trainer</Label>
+                    </div>
+                </RadioGroup>
+             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -71,6 +101,7 @@ export default function SignUpPage() {
                 type="password"
                 required
                 placeholder="••••••••"
+                minLength={6} // Add basic password length requirement
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
