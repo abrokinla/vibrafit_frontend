@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose, // Import DialogClose
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -92,7 +91,7 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
         className="sm:max-w-[425px]"
         onInteractOutside={handleInteractOutside} // Prevent closing on outside click
         onEscapeKeyDown={handleEscapeKeyDown} // Prevent closing with Esc key
-        hideCloseButton={true} // Hide the default 'X' close button if needed
+        hideCloseButton={true} // Hide the default 'X' close button
       >
         <DialogHeader>
           <DialogTitle>Welcome to Vibrafit!</DialogTitle>
@@ -118,7 +117,7 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
             </div>
           </div>
           <DialogFooter>
-              {/* Removed DialogClose wrapper */}
+              {/* Removed DialogClose wrapper, button type submit handles closing via form onSubmit->onClose */}
               <Button type="submit" disabled={isSaving || !goal.trim()}>
                  {isSaving ? 'Saving...' : 'Set Goal & Continue'}
               </Button>
@@ -129,46 +128,46 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
   );
 }
 
-// Helper to optionally hide the close button if needed in DialogContent props
-declare module '@radix-ui/react-dialog' {
-  interface DialogContentProps {
-    hideCloseButton?: boolean;
-  }
+// Note: The declaration merging for DialogContentProps with hideCloseButton
+// should ideally be done in the `src/components/ui/dialog.tsx` file itself
+// to make the prop available globally for that component.
+// For now, it's assumed the change was made there as per the previous undo request.
+// If not, it should be added there:
+/*
+// In src/components/ui/dialog.tsx
+
+// ... other imports
+import { X } from "lucide-react" // Make sure X is imported
+
+// Extend props to include optional hideCloseButton
+interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  hideCloseButton?: boolean;
 }
 
-// Extend DialogContent to handle hideCloseButton prop
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import React from 'react';
 
-const OriginalDialogContent = React.forwardRef<
+const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideCloseButton?: boolean }
->(({ className, children, hideCloseButton, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+  DialogContentProps // Use the extended props interface
+>(({ className, children, hideCloseButton, ...props }, ref) => ( // Destructure hideCloseButton
+  <DialogPortal>
+    <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
+        // ... existing styles
       )}
       {...props}
     >
       {children}
+      {/* Conditionally render the close button * /
       {!hideCloseButton && (
-         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-           <X className="h-4 w-4" />
-           <span className="sr-only">Close</span>
-         </DialogPrimitive.Close>
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
       )}
     </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-));
-OriginalDialogContent.displayName = DialogPrimitive.Content.displayName;
-
-// Replace the export in ui/dialog if needed, or just use this specific import path.
-// For now, we are using it locally within this file.
-DialogContent = OriginalDialogContent;
-```
+  </DialogPortal>
+))
+// ... rest of the file
+*/

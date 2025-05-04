@@ -45,4 +45,3 @@ export default function RecentActivityFeed({ activities }: RecentActivityFeedPro
     </ul>
   );
 }
-```
