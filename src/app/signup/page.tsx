@@ -15,7 +15,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'user' | 'trainer'>('user'); // Add state for role selection
+  const [role, setRole] = useState<'client' | 'trainer'>('client');
   const [error, setError] = useState('');
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -33,24 +33,38 @@ export default function SignUpPage() {
       return;
     }
 
-    // TODO: Implement actual Firebase authentication (createUserWithEmailAndPassword) here
-    // TODO: Store the selected 'role' in the user's profile in Firestore or Firebase Auth custom claims
-    console.log('Attempting sign up with:', { email, role });
+    try {
+      const response = await fetch('https://vibrafit.onrender.com/api/users/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.text(); 
+        throw new Error(`HTTP ${response.status} - ${errorData}`);
+      }
 
-    // Simulate successful sign up for now - replace with actual auth logic
-    const simulatedSuccess = true; // Replace with actual auth check
-
-    if (simulatedSuccess) {
-       // Redirect based on role after successful sign up
-       if (role === 'trainer') {
-         // Optionally, redirect trainers to a specific onboarding or their dashboard
-         // For now, let's redirect them to the trainer dashboard directly
-         router.push('/trainer/dashboard');
-       } else {
-         router.push('/user/dashboard');
-       }
-    } else {
-      setError('Failed to create account. Please try again.'); // Simulate auth failure
+      const data = await response.json(); 
+      console.log('Signup successful:', data);
+    
+      // Redirect based on role after successful sign up
+      if (role === 'trainer') {
+        router.push('/trainer/dashboard');
+      } else if (role === 'client') {
+        router.push('/user/dashboard');
+      } else {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      setError('An error occurred during signup.');
     }
   };
 
@@ -67,13 +81,13 @@ export default function SignUpPage() {
              <div className="space-y-2">
                <Label>Sign up as a:</Label>
                 <RadioGroup
-                    defaultValue="user"
+                    defaultValue="client"
                     value={role}
-                    onValueChange={(value: 'user' | 'trainer') => setRole(value)}
+                    onValueChange={(value: 'client' | 'trainer') => setRole(value)}
                     className="flex space-x-4 pt-2"
                  >
                     <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="user" id="role-user" />
+                    <RadioGroupItem value="client" id="role-client" />
                     <Label htmlFor="role-user">User</Label>
                     </div>
                     <div className="flex items-center space-x-2">

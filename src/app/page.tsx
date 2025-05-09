@@ -43,7 +43,7 @@ export default function Home() {
             <div className="flex justify-center mb-4">
               <BrainCircuit className="h-12 w-12 text-accent" />
             </div>
-            <CardTitle>AI Motivator</CardTitle>
+            <CardTitle>Motivator</CardTitle>
           </CardHeader>
           <CardContent>
             <CardDescription>
@@ -96,7 +96,7 @@ export default function Home() {
           <div>
             <div className="bg-primary text-primary-foreground rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-4 font-bold text-xl">3</div>
             <h3 className="text-xl font-semibold mb-2">Stay Motivated & See Results</h3>
-            <p className="text-muted-foreground">Get daily AI motivation and watch your progress unfold.</p>
+            <p className="text-muted-foreground">Get daily motivation and watch your progress unfold.</p>
           </div>
         </div>
       </section>

@@ -24,25 +24,47 @@ export default function SignInPage() {
       return;
     }
 
-    // TODO: Implement actual Firebase authentication here
-    console.log('Attempting sign in with:', { email, password });
+    try {
+      const response = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    // Simulate successful login for now - replace with actual auth logic
-    // In a real app, you would use Firebase auth methods (e.g., signInWithEmailAndPassword)
-    // and handle success/error responses.
-    const simulatedSuccess = true; // Replace with actual auth check
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Login failed.');
+        return;
+      }
 
-    if (simulatedSuccess) {
-      // Redirect based on role (placeholder logic)
-      if (email.includes('admin')) {
+      const data = await response.json();
+
+      // Store tokens in localStorage or cookie
+      localStorage.setItem('accessToken', data.access);
+      localStorage.setItem('refreshToken', data.refresh);
+
+      // Optionally fetch user profile to determine role
+      const profileRes = await fetch('https://vibrafit.onrender.com/api/users/me/', {
+        headers: {
+          Authorization: `Bearer ${data.access}`,
+        },
+      });
+
+      const userData = await profileRes.json();
+
+      // Redirect based on role
+      if (userData.role === 'admin') {
         router.push('/admin/dashboard');
-      } else if (email.includes('trainer')) {
+      } else if (userData.role === 'trainer') {
         router.push('/trainer/dashboard');
       } else {
         router.push('/user/dashboard');
       }
-    } else {
-      setError('Invalid email or password.'); // Simulate auth failure
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Signin error:', err);
     }
   };
 

@@ -1,4 +1,4 @@
-'use client'; // Make this a client component
+'use client';
 
 import { Suspense, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
