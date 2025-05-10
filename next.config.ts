@@ -5,7 +5,7 @@ export const nextConfig: NextConfig = {
     locales: ['en', 'es'],
     defaultLocale: 'en',
   },
-  output: 'export', 
+  next start, 
   typescript: {
     ignoreBuildErrors: true,
   },
