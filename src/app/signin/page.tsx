@@ -16,15 +16,10 @@ export default function SignInPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
-
-    // Basic validation
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
-
+    setError('');
+  
     try {
+      // Login
       const response = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
         method: 'POST',
         headers: {
@@ -32,41 +27,60 @@ export default function SignInPage() {
         },
         body: JSON.stringify({ email, password }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         setError(errorData.detail || 'Login failed.');
         return;
       }
-
-      const data = await response.json();
-
-      // Store tokens in localStorage or cookie
-      localStorage.setItem('accessToken', data.access);
-      localStorage.setItem('refreshToken', data.refresh);
-
-      // Optionally fetch user profile to determine role
-      const profileRes = await fetch('https://vibrafit.onrender.com/api/users/me/', {
+  
+      const { access, refresh } = await response.json();
+  
+      // Store tokens
+      localStorage.setItem('accessToken', access);
+      localStorage.setItem('refreshToken', refresh);
+  
+      // Fetch user info with token to get ID and other fields
+      const userProfileRes = await fetch('https://vibrafit.onrender.com/api/users/', {
         headers: {
-          Authorization: `Bearer ${data.access}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${access}`,
         },
       });
-
-      const userData = await profileRes.json();
-
+  
+      if (!userProfileRes.ok) {
+        const errorText = await userProfileRes.text();
+        throw new Error(`Failed to fetch user profile: ${errorText}`);
+      }
+  
+      const allUsers = await userProfileRes.json();
+      const loggedInUser = allUsers.find((u: any) => u.email === email);
+  
+      if (!loggedInUser) {
+        throw new Error('User not found after login.');
+      }
+  
+      const { id, role, is_onboarded } = loggedInUser;
+  
+      // Store user details in localStorage
+      localStorage.setItem('userId', id);
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('isOnboarded', JSON.stringify(is_onboarded));
+  
       // Redirect based on role
-      if (userData.role === 'admin') {
+      if (role === 'admin') {
         router.push('/admin/dashboard');
-      } else if (userData.role === 'trainer') {
+      } else if (role === 'trainer') {
         router.push('/trainer/dashboard');
       } else {
         router.push('/user/dashboard');
       }
-    } catch (err) {
+    } catch (err: any) {
       setError('An unexpected error occurred. Please try again.');
-      console.error('Signin error:', err);
+      console.error('Signin error:', err.message || err);
     }
   };
+  
 
   return (
     <div className="flex justify-center items-center py-12">

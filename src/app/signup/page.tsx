@@ -20,53 +20,56 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    // Basic validation
-    if (!email || !password || !role) {
-      setError('Please fill in all fields and select a role.');
-      return;
-    }
-
-    try {
-      const response = await fetch('https://vibrafit.onrender.com/api/users/register/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          role,
-        }),
-      });
+    setError('');
   
-      if (!response.ok) {
-        const errorData = await response.text(); 
-        throw new Error(`HTTP ${response.status} - ${errorData}`);
+    if (password !== confirmPassword) {
+      setError('Passwords must match.');
+      return;
+    }
+    if (!email || !password || !role) {
+      setError('Please fill in all fields.');
+      return;
+    }
+  
+    try {
+      const regRes = await fetch('https://vibrafit.onrender.com/api/users/register/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role }),
+      });
+      if (!regRes.ok) {
+        const text = await regRes.text();
+        throw new Error(`Register failed: ${text}`);
       }
+      const user = await regRes.json();
+      localStorage.setItem('userId', user.id);
 
-      const data = await response.json(); 
-      console.log('Signup successful:', data);
-    
-      // Redirect based on role after successful sign up
+      
+      const loginRes = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!loginRes.ok) {
+        const err = await loginRes.json();
+        throw new Error(`Login failed: ${err.detail}`);
+      }
+      const { access, refresh } = await loginRes.json();
+      localStorage.setItem('accessToken', access);
+      localStorage.setItem('refreshToken', refresh);
+  
       if (role === 'trainer') {
         router.push('/trainer/dashboard');
-      } else if (role === 'client') {
-        router.push('/user/dashboard');
       } else {
-        router.push('/');
+        router.push('/user/dashboard');
       }
-    } catch (error) {
-      console.error('Signup error:', error);
-      setError('An error occurred during signup.');
+  
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Signup error');
     }
   };
+  
 
   return (
     <div className="flex justify-center items-center py-12">

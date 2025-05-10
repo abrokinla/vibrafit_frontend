@@ -1,11 +1,13 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scale, Dumbbell, Apple, Sparkles, UserPlus } from "lucide-react";
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
+import { getUserData, UserData } from '@/lib/api';
 import OnboardingModal from '@/components/user/onboarding-modal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -25,77 +27,109 @@ async function getRecentMeals() {
   ];
 }
 
-interface UserData {
-  id: string;
-  name: string;
-  goal: string;
-  currentProgress: string;
-  isOnboarded: boolean;
-  trainerId: string | null;
-  profilePictureUrl: string | null;
-}
-
-async function getUserData(): Promise<UserData> {
-   // Simulate a new user who hasn't been onboarded and hasn't set a goal yet
-   // In a real app, this would come from your authentication and database
-   return {
-     id: 'user123',
-     name: 'Alex Rider', // Example name
-     goal: '', // Goal is initially empty, to be set in Nutrition page
-     currentProgress: 'Ready to start!',
-     isOnboarded: false, // This flag determines if onboarding modal is shown
-     trainerId: null,
-     profilePictureUrl: null, // Initially no profile picture
-   };
-}
-
 
 export default function UserDashboardPage() {
-   const { toast } = useToast();
-   const [user, setUser] = useState<UserData | null>(null);
-   const [showOnboarding, setShowOnboarding] = useState(false);
-   const [isLoadingUser, setIsLoadingUser] = useState(true);
-   const [recentActivities, setRecentActivities] = useState<Awaited<ReturnType<typeof getRecentWorkouts>>>([]);
-   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+  const router = useRouter();
+  const { toast } = useToast();
 
-   useEffect(() => {
-     setIsLoadingUser(true);
-     getUserData().then(userData => {
-       setUser(userData);
-       if (!userData.isOnboarded) {
-         setShowOnboarding(true);
-       }
-       setIsLoadingUser(false);
-     }).catch(error => {
-        console.error("Failed to load user data", error);
-        toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
+  const [user, setUser] = useState<UserData | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+
+  // —————————————— Load User Data ——————————————
+  useEffect(() => {
+    const loadUser = async () => {
+      setIsLoadingUser(true);
+      try {
+        const data = await getUserData();
+        setUser(data);
+        if (!data.isOnboarded) setShowOnboarding(true);
+        // cache the server state
+           localStorage.setItem('isOnboarded', String(data.isOnboarded));
+
+           // only pop the modal if server says "not onboarded"
+           // AND we haven't already completed it in this browser
+           const didCompleteLocally = localStorage.getItem('hasOnboardedModal') === 'true';
+           if (!data.isOnboarded && !didCompleteLocally) {
+            setShowOnboarding(true);
+           }
+      } catch (err: any) {
+        // ⬇️ Look for our clean error code
+        if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
+          // Clear everything and kick back to sign-in
+          localStorage.clear();
+          router.push('/signin');
+          return;
+        }
+        console.error('Failed to load user:', err);
+        toast({
+          title: 'Error',
+          description: 'Could not load your profile.',
+          variant: 'destructive',
+        });
+      } finally {
         setIsLoadingUser(false);
-     });
+      }
+    };
+  
+    loadUser();
+  }, [router, toast]);
 
-     // Fetch feed data on client
-     Promise.all([getRecentWorkouts(), getRecentMeals()]).then(([workouts, meals]) => {
-         const combined = [...workouts, ...meals].sort((a, b) => b.date.getTime() - a.date.getTime());
-         setRecentActivities(combined);
-         setIsLoadingFeed(false);
-     }).catch(error => {
-        console.error("Failed to load activity feed", error);
+  // —————————————— Load Activity Feed ——————————————
+  useEffect(() => {
+    const loadFeed = async () => {
+      setIsLoadingFeed(true);
+      try {
+        const [workouts, meals] = await Promise.all([
+          getRecentWorkouts(),
+          getRecentMeals(),
+        ]);
+        const combined = [...workouts, ...meals].sort(
+          (a, b) => b.date.getTime() - a.date.getTime()
+        );
+        setRecentActivities(combined);
+      } catch (error) {
+        console.error('Failed to load activity feed', error);
+      } finally {
         setIsLoadingFeed(false);
-     });
-   }, [toast]);
+      }
+    };
 
-   const handleOnboardingComplete = () => {
-     setUser(prevUser => prevUser ? { ...prevUser, isOnboarded: true } : null);
-     setShowOnboarding(false);
-     toast({ title: "Welcome!", description: "You're all set up. You can set your fitness goal on the Nutrition page." });
-   };
+    loadFeed();
+  }, []);
 
-   const handleFindTrainer = () => {
-       console.log('Finding a trainer...');
-       toast({
-           title: "Feature Coming Soon",
-           description: "The ability to find and subscribe to trainers is under development.",
-       });
-   };
+  // —————————————— Onboarding Completion Handler ——————————————
+  const handleOnboardingComplete = async () => {
+    try {
+      const updatedUser = await getUserData();
+      setUser(updatedUser);
+      localStorage.setItem('isOnboarded', 'true');
+      localStorage.setItem('hasOnboardedModal', 'true');
+      setShowOnboarding(false);
+      toast({
+        title: 'Welcome!',
+        description: "You're all set up.",
+      });
+    } catch (error) {
+      console.error('Failed to refresh after onboarding', error);
+      toast({
+        title: 'Refresh Error',
+        description: 'Could not update your dashboard info.',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleFindTrainer = () => {
+    console.log('Finding a trainer...');
+    toast({
+        title: "Feature Coming Soon",
+        description: "The ability to find and subscribe to trainers is under development.",
+    });
+  };
 
    if (isLoadingUser || !user) {
      return (
@@ -114,7 +148,6 @@ export default function UserDashboardPage() {
      );
    }
 
-
   return (
     <div className="space-y-8">
         <OnboardingModal
@@ -124,13 +157,9 @@ export default function UserDashboardPage() {
         />
 
       <h1 className="text-3xl font-bold">Welcome back, {user.name}!</h1>
-
-      {/* AI Motivation Card - Will adapt based on goal presence */}
-      <Suspense fallback={<Card><CardHeader><CardTitle>Loading Motivation...</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
-        {/* @ts-expect-error Server Component */}
-        <AiMotivationCard userId={user.id} goal={user.goal || ''} progress={user.currentProgress} />
-      </Suspense>
-
+      
+       {/* AI Motivation Card - Will adapt based on goal presence */}
+    
 
       {/* Key Metrics / Quick Overview */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import React, { useRef, useState, useEffect } from 'react'; // Added React and hooks
+import React, { useRef, useState, useEffect } from 'react';
+import { getUserData, UserData } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -42,6 +43,7 @@ async function uploadProfilePicture(file: File): Promise<{ success: boolean, new
 
 
 export default function UserSidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,54 +51,96 @@ export default function UserSidebar() {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    fetchUserData().then(setUserData);
-  }, []);
+    const load = async () => {
+      try {
+        const data = await getUserData();
+        setUserData({
+          name: data.name,
+          profilePictureUrl: data.profilePictureUrl,
+        });
+      } catch (err: any) {
+        if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
+          localStorage.clear();
+          router.push('/signin');
+          return;
+        }
+        console.error('Failed to load sidebar user:', err);
+        toast({
+          title: 'Error',
+          description: 'Could not load user info.',
+          variant: 'destructive',
+        });
+      }
+    };
+    load();
+  }, [router, toast]);
 
+  // 2) Trigger file picker
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      try {
-        const result = await uploadProfilePicture(file);
-        if (result.success && result.newUrl) {
-          setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
-          toast({
-            title: "Profile Picture Updated",
-            description: "Your new profile picture has been set.",
-          });
-        } else {
-           toast({
-            title: "Upload Failed",
-            description: "Could not upload your profile picture.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Failed to upload profile picture:", error);
-        toast({
-            title: "Error",
-            description: "An unexpected error occurred during upload.",
-            variant: "destructive",
-        });
-      } finally {
-        setIsUploading(false);
-         // Reset file input to allow re-uploading the same file if needed
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+  // 3) Handle image upload
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const { success, newUrl } = await uploadProfilePicture(file);
+      if (success && newUrl) {
+        setUserData((prev) => prev && { ...prev, profilePictureUrl: newUrl });
+        toast({ title: 'Uploaded!', description: 'Profile picture updated.' });
+      } else {
+        throw new Error('Upload failed');
       }
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({ title: 'Error', description: 'Could not upload image.', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
     }
   };
 
+  // const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (file) {
+  //     setIsUploading(true);
+  //     try {
+  //       const result = await uploadProfilePicture(file);
+  //       if (result.success && result.newUrl) {
+  //         setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
+  //         toast({
+  //           title: "Profile Picture Updated",
+  //           description: "Your new profile picture has been set.",
+  //         });
+  //       } else {
+  //          toast({
+  //           title: "Upload Failed",
+  //           description: "Could not upload your profile picture.",
+  //           variant: "destructive",
+  //         });
+  //       }
+  //     } catch (error) {
+  //       console.error("Failed to upload profile picture:", error);
+  //       toast({
+  //           title: "Error",
+  //           description: "An unexpected error occurred during upload.",
+  //           variant: "destructive",
+  //       });
+  //     } finally {
+  //       setIsUploading(false);
+  //        // Reset file input to allow re-uploading the same file if needed
+  //       if (fileInputRef.current) {
+  //           fileInputRef.current.value = "";
+  //       }
+  //     }
+  //   }
+  // };
+
   const handleSignOut = () => {
-    console.log('Signing out...');
-    // TODO: Implement actual sign out logic (e.g., Firebase signOut, clear context/token)
-    // router.push('/signin'); // Example redirect
-    toast({ title: "Signed Out", description: "You have been successfully signed out."});
+    localStorage.clear();
+    toast({ title: "Signed Out", description: "You have been signed out." });
+    router.push('/signin');
   };
 
   return (
@@ -121,7 +165,7 @@ export default function UserSidebar() {
         <input
           type="file"
           ref={fileInputRef}
-          onChange={handleFileChange}
+          // onChange={handleFileChange}
           accept="image/png, image/jpeg, image/gif"
           className="hidden"
           disabled={isUploading}
