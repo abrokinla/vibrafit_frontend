@@ -1,11 +1,8 @@
 import type {NextConfig} from 'next';
 
 export const nextConfig: NextConfig = {
-  i18n: {
-    locales: ['en', 'es'],
-    defaultLocale: 'en',
-  },
-  next start, 
+
+  output: 'export', 
   typescript: {
     ignoreBuildErrors: true,
   },
