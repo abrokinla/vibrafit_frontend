@@ -46,18 +46,11 @@ export default function UserDashboardPage() {
       try {
         const data = await getUserData();
         setUser(data);
-        if (!data.isOnboarded) setShowOnboarding(true);
-        // cache the server state
-           localStorage.setItem('isOnboarded', String(data.isOnboarded));
-
-           // only pop the modal if server says "not onboarded"
-           // AND we haven't already completed it in this browser
-           const didCompleteLocally = localStorage.getItem('hasOnboardedModal') === 'true';
-           if (!data.isOnboarded && !didCompleteLocally) {
-            setShowOnboarding(true);
-           }
-      } catch (err: any) {
-        // ⬇️ Look for our clean error code
+                
+        if (!data.is_onboarded) {
+          setShowOnboarding(true);
+        }
+      } catch (err: any) {        
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
           // Clear everything and kick back to sign-in
           localStorage.clear();
@@ -78,50 +71,61 @@ export default function UserDashboardPage() {
     loadUser();
   }, [router, toast]);
 
-  // —————————————— Load Activity Feed ——————————————
-  useEffect(() => {
-    const loadFeed = async () => {
-      setIsLoadingFeed(true);
-      try {
-        const [workouts, meals] = await Promise.all([
-          getRecentWorkouts(),
-          getRecentMeals(),
-        ]);
-        const combined = [...workouts, ...meals].sort(
-          (a, b) => b.date.getTime() - a.date.getTime()
-        );
-        setRecentActivities(combined);
-      } catch (error) {
-        console.error('Failed to load activity feed', error);
-      } finally {
-        setIsLoadingFeed(false);
-      }
-    };
-
-    loadFeed();
-  }, []);
-
-  // —————————————— Onboarding Completion Handler ——————————————
-  const handleOnboardingComplete = async () => {
+ 
+useEffect(() => {
+  const loadUser = async () => {
+    setIsLoadingUser(true);
     try {
-      const updatedUser = await getUserData();
-      setUser(updatedUser);
-      localStorage.setItem('isOnboarded', 'true');
-      localStorage.setItem('hasOnboardedModal', 'true');
-      setShowOnboarding(false);
+      const data = await getUserData();
+      setUser(data);
+      
+      if (!data.is_onboarded) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+      }
+    } catch (err: any) {      
+      if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
+        // Clear everything and kick back to sign-in
+        localStorage.clear();
+        router.push('/signin');
+        return;
+      }
+      console.error('Failed to load user:', err);
       toast({
-        title: 'Welcome!',
-        description: "You're all set up.",
-      });
-    } catch (error) {
-      console.error('Failed to refresh after onboarding', error);
-      toast({
-        title: 'Refresh Error',
-        description: 'Could not update your dashboard info.',
+        title: 'Error',
+        description: 'Could not load your profile.',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoadingUser(false);
     }
   };
+
+  loadUser();
+}, [router, toast]);
+
+const handleOnboardingComplete = async () => {
+  try {
+    console.log("Onboarding completed, refreshing user data...");     
+    const updatedUser = await getUserData();    
+    setUser(updatedUser);
+    
+    setShowOnboarding(!updatedUser.is_onboarded);
+    
+    toast({
+      title: 'Welcome!',
+      description: "You're all set up.",
+    });
+  } catch (error) {
+    console.error('Failed to refresh after onboarding', error);
+    toast({
+      title: 'Refresh Error',
+      description: 'Could not update your dashboard info.',
+      variant: 'destructive',
+    });
+  }
+};
   
   const handleFindTrainer = () => {
     console.log('Finding a trainer...');
@@ -148,7 +152,7 @@ export default function UserDashboardPage() {
      );
    }
 
-  return (
+   return (
     <div className="space-y-8">
         <OnboardingModal
             isOpen={showOnboarding}

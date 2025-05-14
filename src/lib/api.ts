@@ -5,7 +5,7 @@ export interface UserData {
   name: string;
   goal: string;
   currentProgress: string;
-  isOnboarded: boolean;
+  is_onboarded: boolean;
   trainerId: string | null;
   profilePictureUrl: string | null;
 }

@@ -65,7 +65,7 @@ export default function SignInPage() {
       // Store user details in localStorage
       localStorage.setItem('userId', id);
       localStorage.setItem('userRole', role);
-      localStorage.setItem('isOnboarded', JSON.stringify(is_onboarded));
+      localStorage.setItem('isOnboarded', is_onboarded.toString());
   
       // Redirect based on role
       if (role === 'admin') {
