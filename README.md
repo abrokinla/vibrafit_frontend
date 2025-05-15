@@ -1,5 +1,5 @@
-# Firebase Studio
+# VIBRAFIT
 
-This is a NextJS starter in Firebase Studio.
+- A fitness app with a difference, Runing on Django backand Check https://github.com/abrokinla/vibrafit
 
-To get started, take a look at src/app/page.tsx.
+# WIP
