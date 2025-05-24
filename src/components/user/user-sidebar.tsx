@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import React, { useRef, useState, useEffect } from 'react';
 import { getUserData, UserData } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { uploadProfilePicture } from '@/lib/utils';
 
 
 const navItems = [
@@ -24,23 +25,6 @@ interface UserSidebarData {
   name: string;
   profilePictureUrl: string | null;
 }
-
-async function fetchUserData(): Promise<UserSidebarData> {
-  // await new Promise(resolve => setTimeout(resolve, 200)); // Simulate delay
-  return {
-    name: 'Alex Rider', // Example
-    profilePictureUrl: null, // Example: 'https://picsum.photos/100' or null
-  };
-}
-
-// Simulate uploading image (replace with actual API call)
-async function uploadProfilePicture(file: File): Promise<{ success: boolean, newUrl?: string }> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log("Uploading file:", file.name);
-    // In a real app, upload to storage and get URL
-    return { success: true, newUrl: URL.createObjectURL(file) }; // Simulate success and return local URL for preview
-}
-
 
 export default function UserSidebar() {
   const router = useRouter();
@@ -79,63 +63,42 @@ export default function UserSidebar() {
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
-
-  // 3) Handle image upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const { success, newUrl } = await uploadProfilePicture(file);
-      if (success && newUrl) {
-        setUserData((prev) => prev && { ...prev, profilePictureUrl: newUrl });
-        toast({ title: 'Uploaded!', description: 'Profile picture updated.' });
-      } else {
-        throw new Error('Upload failed');
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploading(true);
+      try {
+        const result = await uploadProfilePicture(file);
+        if (result.success && result.newUrl) {
+          setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
+          toast({
+            title: "Profile Picture Updated",
+            description: "Your new profile picture has been set.",
+          });
+        } else {
+           toast({
+            title: "Upload Failed",
+            description: "Could not upload your profile picture.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to upload profile picture:", error);
+        toast({
+            title: "Error",
+            description: "An unexpected error occurred during upload.",
+            variant: "destructive",
+        });
+      } finally {
+        setIsUploading(false);
+         // Reset file input to allow re-uploading the same file if needed
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
       }
-    } catch (err) {
-      console.error('Upload error:', err);
-      toast({ title: 'Error', description: 'Could not upload image.', variant: 'destructive' });
-    } finally {
-      setIsUploading(false);
     }
   };
-
-  // const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  //   const file = event.target.files?.[0];
-  //   if (file) {
-  //     setIsUploading(true);
-  //     try {
-  //       const result = await uploadProfilePicture(file);
-  //       if (result.success && result.newUrl) {
-  //         setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
-  //         toast({
-  //           title: "Profile Picture Updated",
-  //           description: "Your new profile picture has been set.",
-  //         });
-  //       } else {
-  //          toast({
-  //           title: "Upload Failed",
-  //           description: "Could not upload your profile picture.",
-  //           variant: "destructive",
-  //         });
-  //       }
-  //     } catch (error) {
-  //       console.error("Failed to upload profile picture:", error);
-  //       toast({
-  //           title: "Error",
-  //           description: "An unexpected error occurred during upload.",
-  //           variant: "destructive",
-  //       });
-  //     } finally {
-  //       setIsUploading(false);
-  //        // Reset file input to allow re-uploading the same file if needed
-  //       if (fileInputRef.current) {
-  //           fileInputRef.current.value = "";
-  //       }
-  //     }
-  //   }
-  // };
 
   const handleSignOut = () => {
     localStorage.clear();
@@ -161,14 +124,15 @@ export default function UserSidebar() {
                 {isUploading ? <Upload className="h-8 w-8 animate-pulse" /> : <User className="h-10 w-10" />}
             </AvatarFallback>
           )}
-        </Avatar>
+        </Avatar>        
         <input
           type="file"
           ref={fileInputRef}
-          // onChange={handleFileChange}
+          onChange={handleFileChange}
           accept="image/png, image/jpeg, image/gif"
           className="hidden"
           disabled={isUploading}
+          style={{ display: 'none' }}
         />
         {userData?.name && <p className="text-sm font-medium">{userData.name}</p>}
         <Button variant="link" size="sm" onClick={handleAvatarClick} disabled={isUploading} className="text-xs p-0 h-auto">
