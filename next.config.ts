@@ -2,7 +2,8 @@ import type {NextConfig} from 'next';
 
 export const nextConfig: NextConfig = {
 
-  // output: 'export', 
+  // output: 'export',
+  trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -37,17 +37,6 @@ interface DailyUserRoutine {
   planId: number;
 }
 
-// const token = localStorage.getItem('accessToken')
-// if (!token) {
-//   console.error("No auth token—please log in first");
-//   return;
-// }
-
-const userId = localStorage.getItem("userId");
-if (!userId) {
-  console.error("No user ID found");
-  return;
-}
 
 async function fetchDailyRoutineForUser(token: string): Promise<(DailyUserRoutine & { planId: number }) | null> {
   const today = new Date().toISOString().split('T')[0];
@@ -160,13 +149,14 @@ export default function WorkoutsPage() {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null); // For video modal
   
-  const token = localStorage.getItem('accessToken')
-  if (!token) {
-    console.error("No auth token—please log in first");
-    return;
-  }
+  
   useEffect(() => {
     setIsLoadingRoutine(true);
+    const token = localStorage.getItem('accessToken')
+      if (!token) {
+        console.error("No auth token—please log in first");
+        return;
+      }
     fetchDailyRoutineForUser(token)
       .then(routine => {
         setDailyRoutine(routine);
