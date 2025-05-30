@@ -17,7 +17,7 @@ export default function SignInPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-  
+
     try {
       // Login
       const response = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
@@ -80,7 +80,6 @@ export default function SignInPage() {
       console.error('Signin error:', err.message || err);
     }
   };
-  
 
   return (
     <div className="flex justify-center items-center py-12">

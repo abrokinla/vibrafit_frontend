@@ -2,7 +2,7 @@ import type {NextConfig} from 'next';
 
 export const nextConfig: NextConfig = {
 
-  output: 'export', 
+  // output: 'export', 
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -14,6 +14,12 @@ export const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
         port: '',
         pathname: '/**',
       },

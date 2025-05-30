@@ -1,3 +1,4 @@
+
 // src/app/user/workouts/page.tsx
 'use client';
 
@@ -5,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Dumbbell, CalendarDays, PlusCircle, Trash2, CheckSquare, Square, RefreshCw } from "lucide-react";
+import { Dumbbell, CalendarDays, PlusCircle, Trash2, CheckSquare, Square, RefreshCw, PlayCircle } from "lucide-react"; // Added PlayCircle
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,56 +24,111 @@ interface Exercise {
   name: string;
   targetSets: number;
   targetReps: number;
-  unit?: 'reps' | 'seconds' | 'minutes'; // Optional: to specify unit for reps (e.g., plank for 30 seconds)
+  unit: 'reps' | 'seconds' | 'minutes';
+  notes?: string;
+  videoUrl?: string; 
 }
 
 interface DailyUserRoutine {
-  date: string; // YYYY-MM-DD
+  date: string; 
+  routineName?: string; 
   exercises: Exercise[];
   trainerNotes?: string;
+  planId: number;
 }
 
-// Mock data for daily routine - In a real app, this would come from a backend
-const mockDailyRoutine: DailyUserRoutine = {
-  date: new Date().toISOString().split('T')[0], // Today's date
-  exercises: [
-    { id: 'ex1', name: 'Push-ups', targetSets: 3, targetReps: 10, unit: 'reps' },
-    { id: 'ex2', name: 'Squats', targetSets: 3, targetReps: 12, unit: 'reps' },
-    { id: 'ex3', name: 'Plank', targetSets: 3, targetReps: 30, unit: 'seconds' },
-    { id: 'ex4', name: 'Lunges (each leg)', targetSets: 3, targetReps: 10, unit: 'reps' },
-    { id: 'ex5', name: 'Bicep Curls', targetSets: 3, targetReps: 12, unit: 'reps' },
-  ],
-  trainerNotes: "Focus on form! Take 60-90 seconds rest between sets. Stay hydrated.",
-};
+// const token = localStorage.getItem('accessToken')
+// if (!token) {
+//   console.error("No auth token—please log in first");
+//   return;
+// }
 
-// Simulate fetching this routine
-async function fetchDailyRoutineForUser(userId: string, date: string): Promise<DailyUserRoutine | null> {
-  console.log(`Fetching routine for user ${userId} on ${date}`);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-  // For now, return mock data if date is today, otherwise null
-  // In a real app, this would fetch from your database based on userId and date
-  if (date === new Date().toISOString().split('T')[0]) {
-    return mockDailyRoutine;
+const userId = localStorage.getItem("userId");
+if (!userId) {
+  console.error("No user ID found");
+  return;
+}
+
+async function fetchDailyRoutineForUser(token: string): Promise<(DailyUserRoutine & { planId: number }) | null> {
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const res = await fetch('https://vibrafit.onrender.com/api/plans/', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error("Failed to fetch routine");
+
+    const data = await res.json();
+
+    const todayPlan = data.find((plan: any) => plan.startDate === today);
+    if (!todayPlan) return null;
+
+    return {
+      date: todayPlan.startDate,
+      routineName: todayPlan.routineName,
+      exercises: todayPlan.exercises.map((ex: any, index: number) => ({
+        PlanId: `ex${index}`,
+        name: ex.name,
+        targetSets: Number(ex.sets),
+        targetReps: Number(ex.reps),
+        unit: ex.unit,
+        notes: ex.notes || '',
+      })),
+      trainerNotes: '',
+      planId: todayPlan.planId, 
+    };
+  } catch (err) {
+    console.error("Error fetching today's routine:", err);
+    return null;
   }
-  return null; // No routine for other days in this mock
 }
 
-async function saveWorkoutProgress(userId: string, date: string, completedExercises: Set<string>): Promise<{ success: boolean }> {
-    console.log(`Saving progress for user ${userId} on ${date}:`, Array.from(completedExercises));
-    await new Promise(resolve => setTimeout(resolve, 700));
-    // In a real app, this would update the user's progress in the database
-    return { success: true };
+async function saveWorkoutProgress(token: string, planId: number, completedExercises: Set<string>, totalExercises: number, notes: string) {
+  const today = new Date().toISOString().split('T')[0];
+  const payload = {
+    plan: planId,
+    date: today,
+    actual_nutrition: "",
+    actual_exercise: JSON.stringify(Array.from(completedExercises)),
+    completion_percentage: (completedExercises.size / totalExercises) * 100,
+    notes,
+  };
+
+  const response = await fetch('https://vibrafit.onrender.com/api/daily-logs/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    return { success: false, error: errorData };
+  }
+
+  return { success: true };
 }
 
+async function fetchWorkouts(token: string): Promise<WorkoutLog[]> {
+  const res = await fetch('https://vibrafit.onrender.com/api/daily-logs/', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-// Simulate fetching/saving data for manual logs (existing functionality)
-async function fetchWorkouts(): Promise<WorkoutLog[]> {
-  await new Promise(resolve => setTimeout(resolve, 600));
-  return [
-    { id: 'w1', date: new Date(Date.now() - 86400000), description: 'Morning run - 5km, felt good.' },
-    { id: 'w2', date: new Date(Date.now() - 86400000 * 3), description: 'Upper body strength training - focused on bench press and rows.' },
-  ];
+  if (!res.ok) throw new Error("Failed to fetch logs");
+
+  const data = await res.json();
+  return data.map((log: any) => ({
+    id: log.id,
+    date: new Date(log.date),
+    description: log.description,
+  }));
 }
+
 
 async function addWorkout(description: string): Promise<{ success: boolean; newWorkout?: WorkoutLog }> {
   await new Promise(resolve => setTimeout(resolve, 700));
@@ -98,31 +154,33 @@ export default function WorkoutsPage() {
   const [isSavingManualLog, setIsSavingManualLog] = useState(false);
   const [deletingManualLogId, setDeletingManualLogId] = useState<string | null>(null);
 
-  // State for Trainer-Assigned Routine
   const [dailyRoutine, setDailyRoutine] = useState<DailyUserRoutine | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(true);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
-  const userId = "user123"; // Replace with actual user ID from auth/context
-
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null); // For video modal
+  
+  const token = localStorage.getItem('accessToken')
+  if (!token) {
+    console.error("No auth token—please log in first");
+    return;
+  }
   useEffect(() => {
-    // Fetch manual logs
-    setIsLoadingManualLogs(true);
-    fetchWorkouts().then(data => {
-      setWorkoutHistory(data);
-      setIsLoadingManualLogs(false);
-    });
-
-    // Fetch daily routine
     setIsLoadingRoutine(true);
-    const today = new Date().toISOString().split('T')[0];
-    fetchDailyRoutineForUser(userId, today).then(routine => {
-      setDailyRoutine(routine);
-      // TODO: Load completed exercises from backend if previously saved
-      setCompletedExercises(new Set()); // Reset for now
-      setIsLoadingRoutine(false);
-    });
-  }, [userId]);
+    fetchDailyRoutineForUser(token)
+      .then(routine => {
+        setDailyRoutine(routine);
+        setCompletedExercises(new Set());
+      })
+      .catch(err => console.error(err))
+      .finally(() => setIsLoadingRoutine(false));
+
+    setIsLoadingManualLogs(true);
+    fetchWorkouts(token)
+      .then(data => setWorkoutHistory(data))
+      .catch(err => console.error(err))
+      .finally(() => setIsLoadingManualLogs(false));
+  }, [token]);
 
   const handleToggleExerciseComplete = (exerciseId: string) => {
     setCompletedExercises(prev => {
@@ -144,24 +202,45 @@ export default function WorkoutsPage() {
   }, [dailyRoutine, completedExercises]);
 
   const handleSaveRoutineProgress = async () => {
-    if (!dailyRoutine) return;
-    setIsSavingProgress(true);
-    try {
-      const result = await saveWorkoutProgress(userId, dailyRoutine.date, completedExercises);
-      if (result.success) {
-        toast({ title: "Progress Saved", description: "Your workout progress has been updated." });
-      } else {
-        toast({ title: "Save Failed", description: "Could not save your progress.", variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
-    } finally {
-      setIsSavingProgress(false);
+  if (!dailyRoutine) return;
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    console.error("No auth token—please log in first");
+    toast({ title: "Not logged in", description: "Please login to save progress.", variant: "destructive" });
+    return;
+  }
+  setIsSavingProgress(true);
+  try {
+    const result = await saveWorkoutProgress(
+      token,  // pass token first!
+      dailyRoutine.planId,
+      completedExercises,
+      dailyRoutine.exercises.length,
+      ''
+    );
+    if (result.success) {
+      toast({ title: "Progress Saved!", description: "Your workout for today has been logged." });
+    } else {
+      toast({ title: "Save Failed", description: "Could not save your progress. Please try again.", variant: "destructive" });
     }
+  } catch (error) {
+    toast({ title: "Error", description: "An unexpected error occurred while saving progress.", variant: "destructive" });
+  } finally {
+    setIsSavingProgress(false);
+  }
+};
+
+
+  const handlePlayVideo = (videoUrl: string) => {
+    // For now, just log. In a real app, this would open a modal with a video player.
+    console.log("Attempting to play video:", videoUrl);
+    toast({ title: "Video Playback", description: `Video player for ${videoUrl} would open here.`});
+    // setPlayingVideoUrl(videoUrl); // This would trigger a modal
   };
 
 
   const handleAddManualWorkout = async () => {
+    // ... (existing manual workout logic)
     if (!newWorkoutDescription.trim()) {
       toast({ title: "Empty Log", description: "Please describe your workout.", variant: "destructive" });
       return;
@@ -184,6 +263,7 @@ export default function WorkoutsPage() {
   };
 
   const handleDeleteManualWorkout = async (id: string) => {
+    // ... (existing manual workout logic)
     setDeletingManualLogId(id);
     try {
         const result = await deleteWorkout(id);
@@ -203,77 +283,99 @@ export default function WorkoutsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start">
         <div>
             <h1 className="text-3xl font-bold">Your Workouts</h1>
-            <p className="text-muted-foreground">Stay on track with your daily routine and log any extra activities.</p>
+            <p className="text-muted-foreground">Follow your plan, track completion, and log any extra activities.</p>
         </div>
+        {/* Optional: Button to "Start Training" if not directly on dashboard */}
       </div>
 
       {/* Trainer Assigned Routine Section */}
       <Card className="shadow-lg border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-primary">
-            <Dumbbell className="h-6 w-6" /> Today's Routine ({format(new Date(), 'PPP')})
+            <Dumbbell className="h-6 w-6" /> 
+            {dailyRoutine?.routineName ? `Today's Routine: ${dailyRoutine.routineName}` : `Today's Routine`} ({format(new Date(), 'PPP')})
           </CardTitle>
           {dailyRoutine?.trainerNotes && (
-            <CardDescription>{dailyRoutine.trainerNotes}</CardDescription>
+            <CardDescription className="pt-1 text-sm">{dailyRoutine.trainerNotes}</CardDescription>
           )}
         </CardHeader>
         <CardContent>
           {isLoadingRoutine ? (
             <div className="space-y-3">
-              {[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-muted rounded animate-pulse"></div>)}
-              <div className="h-6 w-1/2 bg-muted rounded animate-pulse mt-4"></div>
+              {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-muted rounded animate-pulse"></div>)}
+              <div className="h-4 w-1/2 bg-muted rounded animate-pulse mt-4"></div>
+              <div className="h-10 w-1/3 bg-muted rounded animate-pulse mt-2"></div>
             </div>
           ) : dailyRoutine ? (
             <div className="space-y-4">
-              <div className="space-y-1 mb-4">
-                <div className="flex justify-between items-center text-sm mb-1">
-                    <span>Progress</span>
-                    <span>{completedExercises.size} / {dailyRoutine.exercises.length} exercises</span>
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center text-sm mb-1 font-medium">
+                    <span>Progress: {completedExercises.size} / {dailyRoutine.exercises.length} done</span>
+                    <span>{Math.round(routineProgress)}%</span>
                 </div>
-                <Progress value={routineProgress} className="w-full h-3" />
-                 <p className="text-xs text-muted-foreground text-right">{Math.round(routineProgress)}% complete</p>
+                <Progress value={routineProgress} className="w-full h-3 [&>div]:bg-green-500" />
               </div>
 
               <ul className="space-y-3">
                 {dailyRoutine.exercises.map((exercise) => (
-                  <li key={exercise.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-md hover:bg-secondary transition-colors">
-                    <div className="flex items-center gap-3">
+                  <li key={exercise.id} className="flex items-center justify-between p-3.5 bg-card border rounded-lg hover:bg-secondary/30 transition-colors shadow-sm">
+                    <div className="flex items-center gap-3 flex-1">
                       <Checkbox
                         id={`ex-${exercise.id}`}
                         checked={completedExercises.has(exercise.id)}
                         onCheckedChange={() => handleToggleExerciseComplete(exercise.id)}
                         aria-label={`Mark ${exercise.name} as complete`}
                         disabled={isSavingProgress}
+                        className="h-5 w-5"
                       />
-                      <div>
-                        <label htmlFor={`ex-${exercise.id}`} className="font-medium cursor-pointer">{exercise.name}</label>
+                      <div className="flex-1">
+                        <label htmlFor={`ex-${exercise.id}`} className="font-medium cursor-pointer block">{exercise.name}</label>
                         <p className="text-xs text-muted-foreground">
-                          {exercise.targetSets} sets x {exercise.targetReps} {exercise.unit || 'reps'}
+                          {exercise.targetSets} sets &times; {exercise.targetReps} {exercise.unit}
                         </p>
+                        {exercise.notes && <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Note: {exercise.notes}</p>}
                       </div>
                     </div>
-                     {completedExercises.has(exercise.id) && <CheckSquare className="h-5 w-5 text-green-500" />}
+                    <div className="flex items-center gap-2">
+                        {exercise.videoUrl && (
+                           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handlePlayVideo(exercise.videoUrl!)} aria-label={`Play video for ${exercise.name}`}>
+                                <PlayCircle className="h-4 w-4" />
+                           </Button>
+                        )}
+                        {completedExercises.has(exercise.id) && <CheckSquare className="h-5 w-5 text-green-500" />}
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-6">
-              No routine assigned for today. Check back later or log an ad-hoc workout below.
+            <p className="text-muted-foreground text-center py-8 text-lg">
+              No workout routine assigned for today. <br/>
+              You can log an ad-hoc workout below, or check back later!
             </p>
           )}
         </CardContent>
-        {dailyRoutine && (
-            <CardFooter className="flex justify-end">
-                <Button onClick={handleSaveRoutineProgress} disabled={isSavingProgress || isLoadingRoutine}>
-                {isSavingProgress ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save My Progress'}
+        {dailyRoutine && dailyRoutine.exercises.length > 0 && (
+            <CardFooter className="flex justify-end border-t pt-4">
+                <Button onClick={handleSaveRoutineProgress} disabled={isSavingProgress || isLoadingRoutine} size="lg">
+                {isSavingProgress ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Saving Progress...</> : 'Mark Day as Complete'}
                 </Button>
             </CardFooter>
         )}
       </Card>
+
+      {/* Video Player Modal (Conceptual) */}
+      {/* {playingVideoUrl && (
+        <Dialog open={!!playingVideoUrl} onOpenChange={() => setPlayingVideoUrl(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader><DialogTitle>Exercise Video</DialogTitle></DialogHeader>
+            <video src={playingVideoUrl} controls autoPlay className="w-full rounded-md aspect-video"></video>
+          </DialogContent>
+        </Dialog>
+      )} */}
 
 
       {/* Manual Workout Log Section */}
@@ -308,14 +410,14 @@ export default function WorkoutsPage() {
         <CardContent>
           {isLoadingManualLogs ? (
              <div className="space-y-4">
-               {[1,2,3].map(i => <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>)}
+               {[1,2].map(i => <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>)}
              </div>
           ) : workoutHistory.length === 0 ? (
              <p className="text-muted-foreground text-center py-4">No ad-hoc workouts logged yet.</p>
           ) : (
             <ul className="space-y-4">
               {workoutHistory.map((workout) => (
-                <li key={workout.id} className="border p-4 rounded-lg flex justify-between items-start gap-4 bg-card hover:bg-secondary/50 transition-colors duration-200">
+                <li key={workout.id} className="border p-4 rounded-lg flex justify-between items-start gap-4 bg-card hover:bg-secondary/50 transition-colors duration-200 shadow-sm">
                   <div className="flex-1 space-y-1">
                      <p className="text-sm font-medium flex items-center gap-2">
                         <Dumbbell className="h-4 w-4 text-muted-foreground" />
@@ -332,7 +434,7 @@ export default function WorkoutsPage() {
                       onClick={() => handleDeleteManualWorkout(workout.id)}
                       disabled={deletingManualLogId === workout.id}
                       aria-label="Delete workout"
-                      className="text-muted-foreground hover:text-destructive"
+                      className="text-muted-foreground hover:text-destructive h-8 w-8"
                     >
                       {deletingManualLogId === workout.id ? (
                         <Trash2 className="h-4 w-4 animate-spin" />
@@ -346,7 +448,7 @@ export default function WorkoutsPage() {
           )}
         </CardContent>
         {workoutHistory.length > 0 && (
-             <CardFooter className="text-sm text-muted-foreground">
+             <CardFooter className="text-sm text-muted-foreground border-t pt-3 mt-3">
                 Showing your latest ad-hoc workouts.
              </CardFooter>
         )}
@@ -354,3 +456,5 @@ export default function WorkoutsPage() {
     </div>
   );
 }
+
+    

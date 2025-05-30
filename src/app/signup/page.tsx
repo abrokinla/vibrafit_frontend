@@ -15,22 +15,23 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'client' | 'trainer'>('client');
+  const [role, setRole] = useState<'user' | 'trainer'>('user'); // Add state for role selection
   const [error, setError] = useState('');
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-  
+    setError(''); // Clear previous errors
+
     if (password !== confirmPassword) {
-      setError('Passwords must match.');
+      setError('Passwords do not match.');
       return;
     }
+
     if (!email || !password || !role) {
-      setError('Please fill in all fields.');
+      setError('Please fill in all fields and select a role.');
       return;
     }
-  
+
     try {
       const regRes = await fetch('https://vibrafit.onrender.com/api/users/register/', {
         method: 'POST',
@@ -69,7 +70,6 @@ export default function SignUpPage() {
       setError(err.message || 'Signup error');
     }
   };
-  
 
   return (
     <div className="flex justify-center items-center py-12">
@@ -84,18 +84,18 @@ export default function SignUpPage() {
              <div className="space-y-2">
                <Label>Sign up as a:</Label>
                 <RadioGroup
-                    defaultValue="client"
+                    defaultValue="user"
                     value={role}
-                    onValueChange={(value: 'client' | 'trainer') => setRole(value)}
+                    onValueChange={(value: 'user' | 'trainer') => setRole(value)}
                     className="flex space-x-4 pt-2"
                  >
                     <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="client" id="role-client" />
+                    <RadioGroupItem value="user" id="role-user" />
                     <Label htmlFor="role-user">User</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                     <RadioGroupItem value="trainer" id="role-trainer" />
-                    <Label htmlFor="role-trainer">Trainer</Label>
+                    <Label htmlFor="role-trainer">Fitness Trainer</Label>
                     </div>
                 </RadioGroup>
              </div>

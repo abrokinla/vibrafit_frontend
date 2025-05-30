@@ -1,22 +1,104 @@
+'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Activity, MessageSquare, ClipboardList } from "lucide-react"; // Added ClipboardList
+import { Users, Activity, MessageSquare, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-// Placeholder data - replace with actual data fetching
-const trainerData = {
-  clientCount: 15,
-  recentActivity: [
-    { id: 1, client: 'Alice', action: 'Completed workout plan', time: '2h ago' },
-    { id: 2, client: 'Bob', action: 'Sent a new message', time: '5h ago' },
-    { id: 3, client: 'Charlie', action: 'Missed scheduled check-in', time: '1 day ago' },
-  ],
-  unreadMessages: 3,
-};
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import OnboardingModal from '@/components/trainer/onboarding-modal';
+import { useToast } from "@/hooks/use-toast";
+import { getUserData, UserData } from '@/lib/api';
 
 export default function TrainerDashboardPage() {
-  return (
+  const [user, setUser] = useState<UserData | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const router = useRouter();
+  const [trainerData, setTrainerData] = useState({
+    clientCount: 0,
+    unreadMessages: 0,
+  });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const loadUser = async () => {
+      setIsLoadingUser(true);
+      try {
+        const data = await getUserData();
+        setUser(data);
+
+        if (!data.is_onboarded) {
+          setShowOnboarding(true);
+        } else {
+          setShowOnboarding(false);
+        }
+      } catch (err: any) {
+        if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
+          localStorage.clear();
+          router.push('/signin');
+          return;
+        }
+        toast({
+          title: 'Error',
+          description: 'Could not load your profile.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    loadUser();
+  }, [router, toast]);
+
+    useEffect(() => {
+    if (!user?.id) return;
+
+    fetch(`https://vibrafit.onrender.com/api/users/${user.id}/`, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+      },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Could not load trainer');
+        return res.json();
+      })
+      .then((t: { clientCount: number; unreadMessages: number }) => {
+        setTrainerData({
+          clientCount: t.clientCount ?? 0,
+          unreadMessages: t.unreadMessages ?? 0,
+        });
+      })
+      .catch(console.error);
+  }, [user]);
+
+
+  const handleOnboardingClose = async () => {
+    try {
+      const updatedUser = await getUserData();
+      setUser(updatedUser);
+      setShowOnboarding(!updatedUser.is_onboarded);
+    } catch (error) {
+      toast({
+        title: 'Refresh Error',
+        description: 'Could not update your dashboard info.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (!user) return <Card className="shadow-sm p-4">Loading…</Card>;
+  
+  return (    
     <div className="space-y-8">
+      {showOnboarding && (
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onClose={handleOnboardingClose}
+          userId={user.id.toString()}
+        />
+      )}
       <h1 className="text-3xl font-bold">Trainer Dashboard</h1>
       <p className="text-muted-foreground">Oversee your clients and manage their progress.</p>
 
@@ -74,7 +156,7 @@ export default function TrainerDashboardPage() {
           <CardDescription>Latest updates from your clients.</CardDescription>
         </CardHeader>
         <CardContent>
-           {trainerData.recentActivity.length === 0 ? (
+           {/* {trainerData.recentActivity.length === 0 ? (
              <p className="text-muted-foreground text-center py-4">No recent client activity.</p>
            ) : (
              <ul className="space-y-4">
@@ -85,9 +167,9 @@ export default function TrainerDashboardPage() {
                         </div>
                         <p className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</p>
                     </li>
-                ))}
+                ))} 
              </ul>
-           )}
+           )}*/}
         </CardContent>
       </Card>
 

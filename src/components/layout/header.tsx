@@ -1,4 +1,4 @@
-'use client';
+'use client'; // Add this directive
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -34,7 +34,6 @@ export default function Header() {
     setIsLoggedIn(false);
     router.push('/signin');
   };
-
   return (
     <header className="bg-card border-b sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -42,9 +41,8 @@ export default function Header() {
           <Dumbbell className="h-6 w-6" />
           <span>Vibrafit</span>
         </Link>
-
         <nav className="flex items-center gap-4">
-          {!isLoggedIn ? (
+        {!isLoggedIn ? (
             <>
               <Link href="/signin" passHref>
                 <Button variant="outline">Sign In</Button>

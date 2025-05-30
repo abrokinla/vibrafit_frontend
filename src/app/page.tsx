@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Target, Zap, BrainCircuit } from "lucide-react";
@@ -8,14 +9,14 @@ export default function Home() {
   return (
     <div className="space-y-16">
       {/* Hero Section */}
-      <section className="text-center py-16 md:py-24">
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight">
+      <section className="text-center py-16 md:py-24 animate-in fade-in slide-in-from-bottom-10 duration-700">
+        <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight animate-in fade-in slide-in-from-bottom-8 duration-700">
           Track Your Progress, <span className="text-primary">Vibrate</span> With Energy
         </h1>
-        <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
           Vibrafit helps you stay motivated and achieve your fitness goals with personalized tracking, insights, and daily encouragement.
         </p>
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-400">
           <Link href="/signup" passHref>
             <Button size="lg">Get Started Today</Button>
           </Link>
@@ -24,7 +25,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
         <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
             <div className="flex justify-center mb-4">
@@ -80,7 +81,7 @@ export default function Home() {
       </section>
 
       {/* How it Works Section */}
-      <section className="py-16 md:py-24 bg-secondary rounded-lg px-8">
+      <section className="py-16 md:py-24 bg-secondary rounded-lg px-8 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-400">
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">How Vibrafit Works</h2>
         <div className="grid md:grid-cols-3 gap-8 text-center">
           <div>
@@ -96,13 +97,13 @@ export default function Home() {
           <div>
             <div className="bg-primary text-primary-foreground rounded-full h-12 w-12 flex items-center justify-center mx-auto mb-4 font-bold text-xl">3</div>
             <h3 className="text-xl font-semibold mb-2">Stay Motivated & See Results</h3>
-            <p className="text-muted-foreground">Get daily motivation and watch your progress unfold.</p>
+            <p className="text-muted-foreground">Get daily AI motivation and watch your progress unfold.</p>
           </div>
         </div>
       </section>
 
       {/* Call to Action Section */}
-      <section className="text-center py-16">
+      <section className="text-center py-16 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-500">
         <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Start Your Vibrafit Journey?</h2>
         <p className="text-lg text-muted-foreground mb-8">Join Vibrafit today and take control of your health and fitness.</p>
         <Link href="/signup" passHref>
@@ -111,7 +112,7 @@ export default function Home() {
       </section>
 
       {/* Placeholder Image Section (Optional) */}
-      <section>
+      <section className="animate-in fade-in duration-1000 delay-600">
          <Image
             src="https://picsum.photos/1200/400"
             alt="Fitness lifestyle"

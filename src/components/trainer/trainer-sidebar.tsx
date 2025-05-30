@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload} from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { LayoutDashboard, ClipboardList, User, LogOut, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,38 +15,32 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from '@/components/ui/sidebar'; 
+} from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { uploadProfilePicture } from '@/lib/utils';
 import { getUserData, UserData } from '@/lib/api';
 
+
 const navItems = [
-  { href: '/user/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/user/measurements', label: 'Measurements', icon: Scale },
-  { href: '/user/workouts', label: 'Workouts', icon: Dumbbell },
-  { href: '/user/nutrition', label: 'Nutrition & Goals', icon: Apple },
-  { href: '/user/find-trainer', label: 'Find a Trainer', icon: SearchUsers },
-  { href: '/user/profile', label: 'My Profile', icon: User },
+  { href: '/trainer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/trainer/routines', label: 'Client Routines', icon: ClipboardList },
+  { href: '/trainer/profile', label: 'My Profile', icon: User },
 ];
 
-async function uploadProfilePicture(file: File): Promise<{ success: boolean, newUrl?: string }> {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return { success: true, newUrl: URL.createObjectURL(file) };
-}
-
-export default function UserSidebarContent() {
+export default function TrainerSidebarContent() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [userData, setUserData] = useState<UserSidebarData | null>(null);
+  const [trainerData, setTrainerData] = useState<TrainerSidebarData | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         const data = await getUserData();
-        setUserData({
+        console.log("Sidebar user data:", data);
+        setTrainerData({
           name: data.name,
           profilePictureUrl: data.profilePictureUrl,
         });
@@ -78,7 +72,7 @@ export default function UserSidebarContent() {
       try {
         const result = await uploadProfilePicture(file);
         if (result.success && result.newUrl) {
-          setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
+          setTrainerData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : prev);
           toast({
             title: "Profile Picture Updated",
             description: "Your new profile picture has been set.",
@@ -108,7 +102,7 @@ export default function UserSidebarContent() {
   };
 
   const handleSignOut = () => {
-    console.log('Signing out...');
+    console.log('Trainer signing out...');
     toast({ title: "Signed Out", description: "You have been successfully signed out." });
   };
 
@@ -123,10 +117,10 @@ export default function UserSidebarContent() {
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && handleAvatarClick()}
-            data-ai-hint="profile avatar"
+            data-ai-hint="trainer avatar"
           >
-            {userData?.profilePictureUrl ? (
-              <AvatarImage src={userData.profilePictureUrl} alt={userData?.name || 'User'} />
+            {trainerData?.profilePictureUrl ? (
+              <AvatarImage src={trainerData.profilePictureUrl} alt={trainerData?.name || 'Trainer'} />
             ) : (
               <AvatarFallback className="text-3xl bg-muted">
                 {isUploading ? <Upload className="h-8 w-8 animate-pulse text-primary" /> : <User className="h-10 w-10 text-muted-foreground" />}
@@ -141,14 +135,13 @@ export default function UserSidebarContent() {
             className="hidden"
             disabled={isUploading}
           />
-          {userData?.name && <p className="text-sm font-medium">{userData.name}</p>}
+          {trainerData?.name && <p className="text-sm font-medium">{trainerData.name}</p>}
           <Button variant="link" size="sm" onClick={handleAvatarClick} disabled={isUploading} className="text-xs p-0 h-auto text-primary">
             {isUploading ? 'Uploading...' : 'Change Picture'}
           </Button>
         </div>
-
-        {/* Collapsed View (Icon View) */}
-        <div className="hidden flex-col items-center group-data-[state=expanded]/sidebar:hidden group-data-[state=collapsed]/sidebar:flex">
+        {/* Collapsed View */}
+         <div className="hidden flex-col items-center group-data-[state=expanded]/sidebar:hidden group-data-[state=collapsed]/sidebar:flex">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -158,10 +151,10 @@ export default function UserSidebarContent() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => e.key === 'Enter' && handleAvatarClick()}
-                  data-ai-hint="profile avatar small"
+                   data-ai-hint="trainer avatar small"
                 >
-                  {userData?.profilePictureUrl ? (
-                    <AvatarImage src={userData.profilePictureUrl} alt={userData?.name || 'User'} />
+                  {trainerData?.profilePictureUrl ? (
+                    <AvatarImage src={trainerData.profilePictureUrl} alt={trainerData?.name || 'Trainer'} />
                   ) : (
                      <AvatarFallback className="text-xl bg-muted">
                        {isUploading ? <Upload className="h-5 w-5 animate-pulse text-primary" /> : <User className="h-6 w-6 text-muted-foreground" />}
@@ -170,14 +163,14 @@ export default function UserSidebarContent() {
                 </Avatar>
               </TooltipTrigger>
               <TooltipContent side="right" align="center">
-                <p>{userData?.name || 'User Profile'}</p>
+                <p>{trainerData?.name || 'Trainer Profile'}</p>
                 <p className="text-xs text-muted-foreground">Click to change picture</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
            <input
             type="file"
-            ref={fileInputRef} // Ensure this ref is correctly assigned for the collapsed view as well if it's a separate interactive element
+            ref={fileInputRef} // Ensure this ref is correctly assigned for the collapsed view
             onChange={handleFileChange}
             accept="image/png, image/jpeg, image/gif"
             className="hidden"
@@ -198,9 +191,9 @@ export default function UserSidebarContent() {
                     pathname === item.href && 'bg-primary/10 text-primary font-semibold'
                   )}
                   isActive={pathname === item.href}
-                  tooltip={{children: item.label, side: "right", align:"center"}}
+                  tooltip={{children: item.label, side:"right", align:"center"}}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="mr-2 h-4 w-4" />
                   <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">{item.label}</span>
                 </SidebarMenuButton>
               </Link>

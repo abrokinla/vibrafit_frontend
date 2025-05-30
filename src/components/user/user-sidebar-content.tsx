@@ -1,13 +1,16 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload} from 'lucide-react';
+import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload, Settings, Search } from 'lucide-react'; // Changed SearchUsers to Search
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import React, { useRef, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { getUserData, UserData } from '@/lib/api';
+import { uploadProfilePicture } from '@/lib/utils';
 import {
   SidebarHeader,
   SidebarContent,
@@ -16,27 +19,37 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar'; 
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { uploadProfilePicture } from '@/lib/utils';
-import { getUserData, UserData } from '@/lib/api';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'; 
 
 const navItems = [
   { href: '/user/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/user/measurements', label: 'Measurements', icon: Scale },
   { href: '/user/workouts', label: 'Workouts', icon: Dumbbell },
   { href: '/user/nutrition', label: 'Nutrition & Goals', icon: Apple },
-  { href: '/user/find-trainer', label: 'Find a Trainer', icon: SearchUsers },
+  { href: '/user/find-trainer', label: 'Find a Trainer', icon: Search }, // Changed SearchUsers to Search
   { href: '/user/profile', label: 'My Profile', icon: User },
 ];
 
-async function uploadProfilePicture(file: File): Promise<{ success: boolean, newUrl?: string }> {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return { success: true, newUrl: URL.createObjectURL(file) };
+interface UserSidebarData {
+  name: string;
+  profilePictureUrl: string | null;
 }
 
+// async function fetchUserData(): Promise<UserSidebarData> {
+//   return {
+//     name: 'Alex Rider',
+//     profilePictureUrl: null,
+//   };
+// }
+
+// async function uploadProfilePicture(file: File): Promise<{ success: boolean, newUrl?: string }> {
+//   await new Promise(resolve => setTimeout(resolve, 1000));
+//   return { success: true, newUrl: URL.createObjectURL(file) };
+// }
+
 export default function UserSidebarContent() {
-  const pathname = usePathname();
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userData, setUserData] = useState<UserSidebarData | null>(null);
@@ -110,6 +123,8 @@ export default function UserSidebarContent() {
   const handleSignOut = () => {
     console.log('Signing out...');
     toast({ title: "Signed Out", description: "You have been successfully signed out." });
+    localStorage.clear(); // Clear local storage on sign out
+    router.push('/signin');
   };
 
   return (
@@ -177,7 +192,7 @@ export default function UserSidebarContent() {
           </TooltipProvider>
            <input
             type="file"
-            ref={fileInputRef} // Ensure this ref is correctly assigned for the collapsed view as well if it's a separate interactive element
+            ref={fileInputRef} 
             onChange={handleFileChange}
             accept="image/png, image/jpeg, image/gif"
             className="hidden"
