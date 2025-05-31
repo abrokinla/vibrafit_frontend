@@ -3,6 +3,10 @@ import type {NextConfig} from 'next';
 export const nextConfig: NextConfig = {
 
   output: 'standalone',
+   i18n: {
+    locales: ['en', 'es'],
+    defaultLocale: 'es',
+  },
   trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
