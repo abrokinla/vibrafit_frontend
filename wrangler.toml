@@ -1,0 +1,4 @@
+name = "vibrafit-worker"
+account_id = "21524e48434296949b8d5adbd71079e2"
+workers_dev = true
+compatibility_date = "2024-05-31"
