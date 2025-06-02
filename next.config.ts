@@ -1,11 +1,6 @@
 import type {NextConfig} from 'next';
 
 export const nextConfig: NextConfig = {
-
-   i18n: {
-    locales: ['en', 'es'],
-    defaultLocale: 'es',
-  },
     experimental: {    
       runtime: "edge",
       serverComponentsExternalExternalPackages: ["@cloudflare/next-on-pages"],
