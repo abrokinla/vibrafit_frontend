@@ -150,13 +150,15 @@ export default function WorkoutsPage() {
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null); // For video modal
   
   
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+
   useEffect(() => {
+    if (!token) {
+      console.error("No auth token—please log in first");
+      return;
+    }
+
     setIsLoadingRoutine(true);
-    const token = localStorage.getItem('accessToken')
-      if (!token) {
-        console.error("No auth token—please log in first");
-        return;
-      }
     fetchDailyRoutineForUser(token)
       .then(routine => {
         setDailyRoutine(routine);
@@ -171,6 +173,7 @@ export default function WorkoutsPage() {
       .catch(err => console.error(err))
       .finally(() => setIsLoadingManualLogs(false));
   }, [token]);
+
 
   const handleToggleExerciseComplete = (exerciseId: string) => {
     setCompletedExercises(prev => {
