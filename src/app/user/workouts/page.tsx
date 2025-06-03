@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { useRouter } from 'next/navigation';
 
 interface WorkoutLog {
   id: string;
@@ -216,7 +217,8 @@ export default function WorkoutsPage() {
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(true);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
-  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null); // For video modal
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  const router = useRouter();
   
   
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -224,6 +226,7 @@ export default function WorkoutsPage() {
   useEffect(() => {
     if (!token) {
       console.error("No auth token—please log in first");
+      router.push('/signin');
       return;
     }
 
