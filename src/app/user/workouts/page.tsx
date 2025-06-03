@@ -37,37 +37,106 @@ interface DailyUserRoutine {
   planId: number;
 }
 
+type FetchedRoutine = {
+  routine: DailyUserRoutine;
+  completedExercises: Set<string>;
+};
 
-async function fetchDailyRoutineForUser(token: string): Promise<(DailyUserRoutine & { planId: number }) | null> {
+async function fetchTodayWorkoutLog(token: string): Promise<any | null> {
+  const today = new Date().toISOString().split('T')[0];
+
+  const res = await fetch('https://vibrafit.onrender.com/api/daily-logs/', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch logs");
+
+  const logs = await res.json();
+
+  const todayLog = logs.find((log: any) => log.date === today);
+
+  if (!todayLog) return null;
+
+  return {
+    id: todayLog.id,
+    date: todayLog.date,
+    plan: todayLog.plan,
+    actual_exercise: JSON.parse(todayLog.actual_exercise || '[]'),
+    actual_nutrition: todayLog.actual_nutrition,
+    completion_percentage: todayLog.completion_percentage,
+    notes: todayLog.notes,
+  };
+}
+
+async function fetchDailyRoutineForUser(token: string): Promise<FetchedRoutine | null> {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    const res = await fetch('https://vibrafit.onrender.com/api/plans/', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const [logsRes, plansRes] = await Promise.all([
+      fetch('https://vibrafit.onrender.com/api/daily-logs/', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch('https://vibrafit.onrender.com/api/plans/', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
 
-    if (!res.ok) throw new Error("Failed to fetch routine");
+    if (!logsRes.ok || !plansRes.ok) throw new Error("Failed to fetch logs or plans");
 
-    const data = await res.json();
+    const logs = await logsRes.json();
+    const plans = await plansRes.json();
 
-    const todayPlan = data.find((plan: any) => plan.startDate === today);
-    if (!todayPlan) return null;
+    const todayLog = logs.find((log: any) => log.date === today);
+    let completedExercises = new Set<string>();
 
-    return {
-      date: todayPlan.startDate,
-      routineName: todayPlan.routineName,
-      exercises: todayPlan.exercises.map((ex: any, index: number) => ({
-        PlanId: `ex${index}`,
+    if (todayLog) {
+      const matchingPlan = plans.find((plan: any) => plan.id === todayLog.plan);
+      if (!matchingPlan) return null;
+
+      const exercises = matchingPlan.exercises.map((ex: any, index: number) => ({
+        id: `ex${index}`,
         name: ex.name,
         targetSets: Number(ex.sets),
         targetReps: Number(ex.reps),
         unit: ex.unit,
         notes: ex.notes || '',
-      })),
-      trainerNotes: '',
-      planId: todayPlan.planId, 
+      }));
+
+      completedExercises = new Set(JSON.parse(todayLog.actual_exercise || '[]'));
+
+      return {
+        routine: {
+          date: today,
+          routineName: matchingPlan.routineName,
+          exercises,
+          trainerNotes: todayLog.notes,
+          planId: matchingPlan.id,
+        },
+        completedExercises,
+      };
+    }
+
+    const todayPlan = plans.find((plan: any) => plan.startDate === today);
+    if (!todayPlan) return null;
+
+    const exercises = todayPlan.exercises.map((ex: any, index: number) => ({
+      id: `ex${index}`,
+      name: ex.name,
+      targetSets: Number(ex.sets),
+      targetReps: Number(ex.reps),
+      unit: ex.unit,
+      notes: ex.notes || '',
+    }));
+
+    return {
+      routine: {
+        date: todayPlan.startDate,
+        routineName: todayPlan.routineName,
+        exercises,
+        trainerNotes: '',
+        planId: todayPlan.id,
+      },
+      completedExercises: new Set(), // none completed yet
     };
   } catch (err) {
     console.error("Error fetching today's routine:", err);
@@ -160,9 +229,14 @@ export default function WorkoutsPage() {
 
     setIsLoadingRoutine(true);
     fetchDailyRoutineForUser(token)
-      .then(routine => {
-        setDailyRoutine(routine);
-        setCompletedExercises(new Set());
+      .then(result => {
+        if (result) {
+          setDailyRoutine(result.routine);
+          setCompletedExercises(result.completedExercises);
+        } else {
+          setDailyRoutine(null);
+          setCompletedExercises(new Set());
+        }
       })
       .catch(err => console.error(err))
       .finally(() => setIsLoadingRoutine(false));
@@ -175,17 +249,19 @@ export default function WorkoutsPage() {
   }, [token]);
 
 
-  const handleToggleExerciseComplete = (exerciseId: string) => {
+
+  const handleToggleExerciseComplete = (exerciseId: string, checked: boolean | string) => {
     setCompletedExercises(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(exerciseId)) {
-        newSet.delete(exerciseId);
-      } else {
+      if (checked) {
         newSet.add(exerciseId);
+      } else {
+        newSet.delete(exerciseId);
       }
       return newSet;
     });
   };
+
 
   const routineProgress = useMemo(() => {
     if (!dailyRoutine || dailyRoutine.exercises.length === 0) {
@@ -319,7 +395,7 @@ export default function WorkoutsPage() {
                       <Checkbox
                         id={`ex-${exercise.id}`}
                         checked={completedExercises.has(exercise.id)}
-                        onCheckedChange={() => handleToggleExerciseComplete(exercise.id)}
+                        onCheckedChange={(checked) => handleToggleExerciseComplete(exercise.id, checked)}
                         aria-label={`Mark ${exercise.name} as complete`}
                         disabled={isSavingProgress}
                         className="h-5 w-5"
