@@ -10,13 +10,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
-import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react"; // Added Play icon
+import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react";
 import { getUserData, UserData } from '@/lib/api';
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
 import OnboardingModal from '@/components/user/onboarding-modal';
 import { useToast } from '@/hooks/use-toast';
+import { uploadProgressPhoto } from '@/lib/utils'; 
 
 // Example data fetching functions
 async function getRecentWorkouts() {
@@ -33,12 +34,6 @@ async function getRecentMeals() {
   ];
 }
 
-async function uploadProgressPhoto(userId: string, photoType: 'before' | 'current', file: File): Promise<{ success: boolean, newUrl?: string }> {
-    console.log(`Uploading ${photoType} photo for user ${userId}: ${file.name}`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
-    const mockUrl = URL.createObjectURL(file); 
-    return { success: true, newUrl: mockUrl };
-}
 
 
 export default function UserDashboardPage() {

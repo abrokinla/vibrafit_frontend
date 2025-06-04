@@ -1,10 +1,6 @@
 import type {NextConfig} from 'next';
 
-export const nextConfig: NextConfig = {
-    experimental: {    
-      runtime: "edge",
-      serverComponentsExternalExternalPackages: ["@cloudflare/next-on-pages"],
-  },
+export const nextConfig: NextConfig = {    
   trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,

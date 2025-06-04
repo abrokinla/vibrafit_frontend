@@ -56,35 +56,6 @@ export async function getUserData(): Promise<UserData> {
   return res.json();
 }
 
-// export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
-
-//   const user = await getUserData();
-
-//   const token = localStorage.getItem('accessToken');
-//   const res = await fetch(
-//     'https://vibrafit.onrender.com/api/trainer-profile/profile/',
-//     {
-//       method: 'GET',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         Authorization: `Bearer ${token}`,
-//       },
-//     }
-//   );
-
-//   if (res.status === 401 || res.status === 403) {
-//     throw new Error('UNAUTHORIZED');
-//   }
-//   if (!res.ok) {
-//     const text = await res.text();
-//     throw new Error(text || 'FETCH_ERROR');
-//   }
-
-//   const trainer = (await res.json()) as TrainerProfileData;
-
-//   return { ...user, ...trainer };
-// }
-
 export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
   const token = localStorage.getItem('accessToken');
 
@@ -156,7 +127,7 @@ export async function saveTrainerProfile(
 }
 
 export async function saveUserProfile(
-  data: Partial<userData>
+  data: Partial<UserData>
 ): Promise<{ success: boolean }> {
   const token = localStorage.getItem('accessToken');
   if (!token) throw new Error('NO_CREDENTIALS');
