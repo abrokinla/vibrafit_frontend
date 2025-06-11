@@ -131,7 +131,7 @@ async function fetchDailyRoutineForUser(token: string): Promise<FetchedRoutine |
         startDate: p.startDate,
         frequency: p.frequency,
       })));
-      return null; // <-- Only return null inside this block
+      return null;
     }
 
     const exercises = todayPlan.exercises.map((ex: any, index: number) => ({

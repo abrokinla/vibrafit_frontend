@@ -29,7 +29,7 @@ import {
 
 export default function TrainerRoutinesPage() {
   const { toast } = useToast();
-  const [selectedClient, setSelectedClient] = useState<string>('');
+  const [selectedClient, setSelectedClient] = useState<snumber | null>(null);
   const [routineName, setRoutineName] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
@@ -123,7 +123,7 @@ export default function TrainerRoutinesPage() {
     setRoutineName(routine.name);
     setStartDate(routine.startDate);
     setFrequency(routine.frequency);
-    setExercises(routine.map((ex, index) => ({
+    setExercises(routine.exercise_plan.map((ex, index) => ({
       id: index.toString(),
       ...ex
     })));
@@ -513,13 +513,12 @@ export default function TrainerRoutinesPage() {
           ) : (
             <div className="space-y-4">
               {routines.map((routine) => (
-                <Card key={routine.id} className="border p-4">
-                  <h3 className="font-semibold text-lg">{routine.nutrition_plan || "Routine Plan"}</h3>
+                <Card key={routine.id} className="border p-4">                  
                   <p className="text-sm text-muted-foreground">Start Date: {routine.startDate}</p>
                   <p className="text-sm">Frequency: {routine.frequency}</p>
 
                    <ul className="list-disc pl-5 mt-2">
-                    {routine.exercises?.map((ex, index) => (
+                    {routine.exercise_plan?.map((ex, index) => (
                       <li key={`${ex.name}-${index}`}>
                         {ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}
                       </li>
@@ -528,7 +527,7 @@ export default function TrainerRoutinesPage() {
 
                   <div className="mt-4 flex gap-2">
                     <Button variant="outline" onClick={() => handleEditRoutine(routine)}>Edit</Button>
-                    <Button variant="destructive" onClick={() => handleDeleteRoutine(routine.id)}>Delete</Button>
+                    <Button variant="destructive" onClick={() => handleDeleteRoutine(routine.planId)}>Delete</Button>
                   </div>
                 </Card>
               ))}
