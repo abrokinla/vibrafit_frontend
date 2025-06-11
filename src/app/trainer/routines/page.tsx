@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, PlusCircle, CalendarDays, Trash2, Save, ClipboardEdit, Dumbbell } from "lucide-react"; // Added Dumbbell
+import { User, PlusCircle, CalendarDays, Trash2, Save, ClipboardEdit, Dumbbell, Salad } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,39 +17,15 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+// import { v4 as uuidv4 } from 'uuid';
+import {
+  RoutinePlan,
+  ExerciseInput,
+  RoutineAssignment,
+  Meal,
+  NutritionPlan,
+} from "@/lib/api";
 
-export type RoutinePlan = {
-  id: number;
-  user: number;
-  trainer: number;
-  startDate: string;
-  frequency: string;
-  nutrition_plan: string;
-  exercise_plan: {
-    name: string;
-    sets: string;
-    reps: string;
-    unit: string;
-    notes?: string;
-  }[];
-};
-
-interface ExerciseInput {
-  id: string;
-  name: string;
-  sets: string;
-  reps: string;
-  unit: 'reps' | 'seconds' | 'minutes';
-  notes?: string;
-}
-
-interface RoutineAssignment {
-    clientId: string;
-    routineName: string;
-    startDate: string; // YYYY-MM-DD
-    frequency: 'daily' | 'weekly' | 'custom'; 
-    exercises: ExerciseInput[];    
-}
 
 export default function TrainerRoutinesPage() {
   const { toast } = useToast();
@@ -64,6 +40,15 @@ export default function TrainerRoutinesPage() {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [routines, setRoutines] = useState<RoutinePlan[]>([]);
   const [editingRoutineId, setEditingRoutineId] = useState<number | null>(null);
+  const [nutritionItems, setNutritionItems] = useState<Meal[]>([
+  {
+    id: undefined, 
+    nutrition_plan: undefined,
+    meal_type: "breakfast",
+    time: "",
+    description: "",
+  },
+]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -134,11 +119,11 @@ export default function TrainerRoutinesPage() {
   };
 
   const handleEditRoutine = (routine: RoutinePlan) => {
-    setSelectedClient(routine.client);
+    setSelectedClient(routine.user);
     setRoutineName(routine.name);
     setStartDate(routine.startDate);
     setFrequency(routine.frequency);
-    setExercises(routine.exercises.map((ex, index) => ({
+    setExercises(routine.map((ex, index) => ({
       id: index.toString(),
       ...ex
     })));
@@ -211,6 +196,128 @@ export default function TrainerRoutinesPage() {
         setIsSaving(false);
     }
 };
+
+  const handleAddMeal = () => {
+    setNutritionItems((prev) => [
+      ...prev,
+      {
+        id: undefined,
+        nutrition_plan: undefined,
+        meal_type: "breakfast",
+        time: "",
+        description: "",
+      },
+    ]);
+  };
+
+  const handleRemoveMeal = (index: number) => {
+    setNutritionItems((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleChange = (index: number, key: keyof Meal, value: string) => {
+    setNutritionItems((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+
+  const fetchClientPlan = async (clientId: number) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return null;
+
+    try {
+      const res = await fetch('https://vibrafit.onrender.com/api/plans/', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch plans");
+
+      const plans = await res.json();
+      const clientPlans = plans.filter((p: any) => p.client === clientId);
+      return clientPlans.length > 0 ? clientPlans[0] : null;
+    } catch (error) {
+      console.error("Error fetching client plans:", error);
+      return null;
+    }
+  };
+
+  const handleSavePlan = async () => {
+    setIsSaving(true);
+    const clientPlan = await fetchClientPlan(selectedClient);
+    if (!clientPlan) {
+      toast({
+        title: "No Routine Found",
+        description: "Please create a workout routine for this client before assigning a nutrition plan.",
+        variant: "destructive",
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const payload: NutritionPlan = {
+      plan: clientPlan.planId,
+      notes: "",
+      meals: nutritionItems.map((meal) => ({
+        meal_type: meal.meal_type,
+        time: meal.time,
+        description: meal.description,
+      })),
+    };
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Backend error:", err);
+        toast({
+          title: "Error Saving Nutrition Plan",
+          description: err?.detail || JSON.stringify(err),
+          variant: "destructive",
+        });
+      } else {
+        const savedPlan: NutritionPlan = await res.json();
+        toast({
+          title: "Nutrition Plan Saved",
+          description: "Your meals have been successfully assigned.",
+        });
+        setNutritionItems(
+          savedPlan.meals.map((m) => ({
+            id: m.id,
+            nutrition_plan: savedPlan.id,
+            meal_type: m.meal_type,
+            time: m.time,
+            description: m.description,
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      toast({
+        title: "Network Error",
+        description: "Could not save nutrition plan. Try again.",
+        variant: "destructive",
+      });
+    }
+
+    setIsSaving(false);
+  };
+
+
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">Manage Client Routines</h1>
@@ -411,9 +518,9 @@ export default function TrainerRoutinesPage() {
                   <p className="text-sm text-muted-foreground">Start Date: {routine.startDate}</p>
                   <p className="text-sm">Frequency: {routine.frequency}</p>
 
-                  <ul className="list-disc pl-5 mt-2">
-                    {routine.exercises?.map((ex, i) => (
-                      <li key={i}>
+                   <ul className="list-disc pl-5 mt-2">
+                    {routine.exercises?.map((ex, index) => (
+                      <li key={`${ex.name}-${index}`}>
                         {ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}
                       </li>
                     ))}
@@ -431,18 +538,154 @@ export default function TrainerRoutinesPage() {
 
       </Card>
 
-       {/* Placeholder for Nutrition Plan Setting */}
-      <Card className="shadow-sm opacity-50">
-        <CardHeader>
-            <CardTitle>Nutrition Plans (Coming Soon)</CardTitle>
-            <CardDescription>Assign optional nutrition guidance to your clients.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <p className="text-muted-foreground text-center py-8">
-                Nutrition plan creation tools will be available here in a future update.
-            </p>
-        </CardContent>
-      </Card>
+       {/* Placeholder for Nutrition Plan Setting */}     
+      <Card className="shadow-lg">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-green-600">
+          <Salad className="h-6 w-6" />
+          Create Nutrition Plan
+        </CardTitle>
+        <CardDescription>
+          Select a client and add optional meal guidance per day.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="client-select">Select Client</Label>
+            <Select value={selectedClient} onValueChange={setSelectedClient} disabled={isSaving}>
+              <SelectTrigger id="client-select">
+                <SelectValue placeholder="Choose a client..." />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map(client => (
+                  <SelectItem key={client.id} value={client.id}>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      {client.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="start-date" className="flex items-center gap-1">
+              <CalendarDays className="h-4 w-4" />
+              Start Date
+            </Label>
+            <Input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+        </div>
+
+        {/* --- Nutrition Entries (Meals) --- */}
+        <div className="space-y-4 pt-4 border-t">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Salad className="h-5 w-5" />
+              Meals
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddMeal}
+              disabled={isSaving}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Meal
+            </Button>
+          </div>
+
+          {nutritionItems.map((item, index) => (
+            <Card
+              key={index}  // using `index` as key since id is `undefined` until saved
+              className="p-4 bg-secondary/30 relative shadow-sm border"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={() => handleRemoveMeal(index)}
+                disabled={isSaving || nutritionItems.length === 1}
+                aria-label="Remove meal"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
+              <div className="grid md:grid-cols-3 gap-4 items-end">
+                {/* --- Meal Type Dropdown --- */}
+                <div className="space-y-1">
+                  <Label htmlFor={`meal-type-${index}`}>Meal</Label>
+                  <select
+                    id={`meal-type-${index}`}
+                    value={item.meal_type} 
+                    onChange={(e) =>
+                      handleChange(
+                        index, 
+                        "meal_type", 
+                        e.target.value as "breakfast" | "lunch" | "dinner"
+                      )
+                    }
+                    className="w-full border rounded px-2 py-1"
+                    disabled={isSaving}
+                  >
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                  </select>
+                </div>
+
+                {/* --- Time Input --- */}
+                <div className="space-y-1">
+                  <Label htmlFor={`meal-time-${index}`}>Time</Label>
+                  <Input
+                    id={`meal-time-${index}`}
+                    type="time"
+                    value={item.time}
+                    onChange={(e) =>
+                      handleChange(index, "time", e.target.value)
+                    }
+                    disabled={isSaving}
+                    required
+                  />
+                </div>
+
+                {/* --- Description Textarea --- */}
+                <div className="space-y-1 md:col-span-1">
+                  <Label htmlFor={`meal-desc-${index}`}>Meal Details</Label>
+                  <Textarea
+                    id={`meal-desc-${index}`}
+                    placeholder="e.g., Oatmeal with fruits and almond milk"
+                    rows={2}
+                    value={item.description}
+                    onChange={(e) =>
+                      handleChange(index, "description", e.target.value)
+                    }
+                    disabled={isSaving}
+                    required
+                  />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+
+      </CardContent>
+
+      <CardFooter>
+        <Button onClick={handleSavePlan} disabled={isSaving} className="w-full md:w-auto">
+          <Save className="mr-2 h-4 w-4" />
+          {isSaving ? 'Saving Plan...' : 'Save Nutrition Plan'}
+        </Button>
+      </CardFooter>
+    </Card>
 
     </div>
   );

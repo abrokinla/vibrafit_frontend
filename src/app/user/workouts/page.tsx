@@ -91,7 +91,7 @@ async function fetchDailyRoutineForUser(token: string): Promise<FetchedRoutine |
     let completedExercises = new Set<string>();
 
     if (todayLog) {
-      const matchingPlan = plans.find((plan: any) => plan.id === todayLog.plan);
+      const matchingPlan = plans.find((plan: any) => plan.planId === todayLog.plan);
       if (!matchingPlan) return null;
 
       const exercises = matchingPlan.exercises.map((ex: any, index: number) => ({
@@ -111,14 +111,28 @@ async function fetchDailyRoutineForUser(token: string): Promise<FetchedRoutine |
           routineName: matchingPlan.routineName,
           exercises,
           trainerNotes: todayLog.notes,
-          planId: matchingPlan.id,
+          planId: matchingPlan.planId,
+
         },
         completedExercises,
       };
     }
 
-    const todayPlan = plans.find((plan: any) => plan.startDate === today);
-    if (!todayPlan) return null;
+    const todayPlan = plans.find((plan: any) => {
+      const planStartDate = new Date(plan.startDate);
+      const todayDate = new Date();
+      return plan.frequency === 'daily' && planStartDate <= todayDate;
+    });
+
+
+    if (!todayPlan) {
+      console.warn('No daily plan matched today:', today, plans.map((p: any) => ({
+        id: p.id,
+        startDate: p.startDate,
+        frequency: p.frequency,
+      })));
+      return null; // <-- Only return null inside this block
+    }
 
     const exercises = todayPlan.exercises.map((ex: any, index: number) => ({
       id: `ex${index}`,
@@ -135,7 +149,7 @@ async function fetchDailyRoutineForUser(token: string): Promise<FetchedRoutine |
         routineName: todayPlan.routineName,
         exercises,
         trainerNotes: '',
-        planId: todayPlan.id,
+        planId: todayPlan.planId,
       },
       completedExercises: new Set(), // none completed yet
     };
@@ -154,22 +168,22 @@ async function saveWorkoutProgress(token: string, planId: number, completedExerc
     actual_exercise: JSON.stringify(Array.from(completedExercises)),
     completion_percentage: (completedExercises.size / totalExercises) * 100,
     notes,
-  };
-
+  };  
   const response = await fetch('https://vibrafit.onrender.com/api/daily-logs/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-    },
+    },    
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorData = await response.json();
+    console.error("Failed to save workout:", errorData);
     return { success: false, error: errorData };
   }
-
+  console.log("DEBUG payload sent to backend:", payload);
   return { success: true };
 }
 
@@ -274,33 +288,34 @@ export default function WorkoutsPage() {
   }, [dailyRoutine, completedExercises]);
 
   const handleSaveRoutineProgress = async () => {
-  if (!dailyRoutine) return;
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    console.error("No auth token—please log in first");
-    toast({ title: "Not logged in", description: "Please login to save progress.", variant: "destructive" });
-    return;
-  }
-  setIsSavingProgress(true);
-  try {
-    const result = await saveWorkoutProgress(
-      token,  // pass token first!
-      dailyRoutine.planId,
-      completedExercises,
-      dailyRoutine.exercises.length,
-      ''
-    );
-    if (result.success) {
-      toast({ title: "Progress Saved!", description: "Your workout for today has been logged." });
-    } else {
-      toast({ title: "Save Failed", description: "Could not save your progress. Please try again.", variant: "destructive" });
+    if (!dailyRoutine) return;
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      console.error("No auth token—please log in first");
+      toast({ title: "Not logged in", description: "Please login to save progress.", variant: "destructive" });
+      return;
     }
-  } catch (error) {
-    toast({ title: "Error", description: "An unexpected error occurred while saving progress.", variant: "destructive" });
-  } finally {
-    setIsSavingProgress(false);
-  }
-};
+    setIsSavingProgress(true);
+    try {
+      console.log("DEBUG planId:", dailyRoutine.planId);
+      const result = await saveWorkoutProgress(
+        token,  // pass token first!
+        dailyRoutine.planId,
+        completedExercises,
+        dailyRoutine.exercises.length,
+        ''
+      );
+      if (result.success) {
+        toast({ title: "Progress Saved!", description: "Your workout for today has been logged." });
+      } else {
+        toast({ title: "Save Failed", description: "Could not save your progress. Please try again.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "An unexpected error occurred while saving progress.", variant: "destructive" });
+    } finally {
+      setIsSavingProgress(false);
+    }
+  };
 
 
   const handlePlayVideo = (videoUrl: string) => {

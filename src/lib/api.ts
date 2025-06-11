@@ -24,6 +24,55 @@ export interface TrainerProfileData {
   experience_years: number | null;
 }
 
+// Routine-related types
+export type RoutinePlan = {
+  id: number;
+  user: number;
+  trainer: number;
+  startDate: string;
+  frequency: string;
+  exercise_plan: {
+    name: string;
+    sets: string;
+    reps: string;
+    unit: string;
+    notes?: string;
+  }[];
+};
+
+export interface ExerciseInput {
+  id: string;
+  name: string;
+  sets: string;
+  reps: string;
+  unit: 'reps' | 'seconds' | 'minutes';
+  notes?: string;
+}
+
+export interface RoutineAssignment {
+  clientId: string;
+  routineName: string;
+  startDate: string; // YYYY-MM-DD
+  frequency: 'daily' | 'weekly' | 'custom';
+  exercises: ExerciseInput[];
+}
+
+// Nutrition-related types
+export interface Meal {
+  id?: number;
+  nutrition_plan?: number; 
+  meal_type: 'breakfast' | 'lunch' | 'dinner';
+  time: string;
+  description: string;
+}
+
+export interface NutritionPlan {
+  id?: number; 
+  plan: number;
+  notes?: string;
+  meals: Meal[];
+}
+
 export type CombinedProfileData = UserData & TrainerProfileData;
 
 export async function getUserData(): Promise<UserData> {
