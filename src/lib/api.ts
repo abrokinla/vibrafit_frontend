@@ -26,20 +26,21 @@ export interface TrainerProfileData {
 
 // Routine-related types
 export type RoutinePlan = {
-  id: number;
-  user: number;
-  trainer: number;
+  planId: number;
+  routineName: string;
   startDate: string;
   frequency: string;
-  exercise_plan: {
+  exercises: {
     name: string;
     sets: string;
     reps: string;
     unit: string;
     notes?: string;
   }[];
+  client: number;
+  trainer: number;
+  nutrition: any;
 };
-
 export interface ExerciseInput {
   id: string;
   name: string;
@@ -48,7 +49,6 @@ export interface ExerciseInput {
   unit: 'reps' | 'seconds' | 'minutes';
   notes?: string;
 }
-
 export interface RoutineAssignment {
   clientId: string;
   routineName: string;

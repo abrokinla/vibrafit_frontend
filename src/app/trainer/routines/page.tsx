@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-// import { v4 as uuidv4 } from 'uuid';
 import {
   RoutinePlan,
   ExerciseInput,
@@ -29,7 +28,7 @@ import {
 
 export default function TrainerRoutinesPage() {
   const { toast } = useToast();
-  const [selectedClient, setSelectedClient] = useState<snumber | null>(null);
+  const [selectedClient, setSelectedClient] = useState<number | null>(null)
   const [routineName, setRoutineName] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
@@ -79,22 +78,35 @@ export default function TrainerRoutinesPage() {
     fetchClients();
   }, []);
 
+  
   useEffect(() => {
     const fetchRoutines = async () => {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
       try {
         const res = await fetch('https://vibrafit.onrender.com/api/plans/', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+          const rawData = await res.json();
 
-        if (!res.ok) throw new Error('Failed to fetch routines');
+        if (!Array.isArray(rawData)) {
+          console.error("API did not return an array:", rawData);
+          return;
+        }
 
-        const data = await res.json();
-        setRoutines(data);
+        const mappedRoutines: RoutinePlan[] = rawData.map((routine) => ({
+          planId: routine.planId,
+          routineName: routine.routineName,
+          startDate: routine.startDate,
+          frequency: routine.frequency,
+          exercises: routine.exercises,
+          client: routine.client,
+          trainer: routine.trainer,
+          nutrition: routine.nutrition,
+        }));
+
+        setRoutines(mappedRoutines);
       } catch (error) {
         console.error("Error fetching routines:", error);
       }
@@ -102,6 +114,7 @@ export default function TrainerRoutinesPage() {
 
     fetchRoutines();
   }, []);
+
 
   const handleDeleteRoutine = async (id: number) => {
     const token = localStorage.getItem('accessToken');
@@ -112,23 +125,30 @@ export default function TrainerRoutinesPage() {
           Authorization: `Bearer ${token}`,
         },
       });
-      setRoutines(prev => prev.filter(r => r.id !== id));
+      setRoutines(prev => prev.filter(r => r.planId !== id));
     } catch (error) {
       console.error("Error deleting routine:", error);
     }
   };
 
   const handleEditRoutine = (routine: RoutinePlan) => {
-    setSelectedClient(routine.user);
-    setRoutineName(routine.name);
+    setRoutineName(routine.routineName);
+    setSelectedClient(routine.client);
     setStartDate(routine.startDate);
-    setFrequency(routine.frequency);
-    setExercises(routine.exercise_plan.map((ex, index) => ({
-      id: index.toString(),
-      ...ex
-    })));
-    setEditingRoutineId(routine.id);
+    setFrequency(routine.frequency as 'daily' | 'weekly' | 'custom');
+    const allowedUnits = ['reps', 'seconds', 'minutes'] as const;
+    setExercises(
+      routine.exercises.map((ex, index) => ({
+        id: index.toString(),
+        ...ex,
+        unit: allowedUnits.includes(ex.unit as any)
+          ? (ex.unit as 'reps' | 'seconds' | 'minutes')
+          : 'reps',
+      }))
+    );
+    setEditingRoutineId(routine.planId);
   };
+
 
   const handleAddExercise = () => {
     setExercises([...exercises, { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '' }]);
@@ -184,18 +204,19 @@ export default function TrainerRoutinesPage() {
 
         toast({
             title: "Routine Saved",
-            description: `Workout routine "${routineName}" for ${clients.find(c => c.id === selectedClient)?.name} has been saved.`,
+            description: `Workout routine "${routineName}" for ${clients.find(c => c.id === selectedClient.toString())?.name} has been saved.`,
         });
     } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
         toast({
-            title: "Error Saving Routine",
-            description: err.message,
-            variant: "destructive",
+          title: "Error Saving Routine",
+          description: errorMessage,
+          variant: "destructive",
         });
     } finally {
         setIsSaving(false);
     }
-};
+  };
 
   const handleAddMeal = () => {
     setNutritionItems((prev) => [
@@ -249,7 +270,7 @@ export default function TrainerRoutinesPage() {
 
   const handleSavePlan = async () => {
     setIsSaving(true);
-    const clientPlan = await fetchClientPlan(selectedClient);
+    const clientPlan = await fetchClientPlan(Number(selectedClient));
     if (!clientPlan) {
       toast({
         title: "No Routine Found",
@@ -339,21 +360,26 @@ export default function TrainerRoutinesPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="client-select">Select Client</Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient} disabled={isSaving}>
-                    <SelectTrigger id="client-select">
-                        <SelectValue placeholder="Choose a client..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                            <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                {client.name}
-                            </div>
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
+                <Select
+                  value={selectedClient !== null ? String(selectedClient) : undefined}
+                  onValueChange={(val) => setSelectedClient(Number(val))}
+                  disabled={isSaving}
+                >
+                  <SelectTrigger id="client-select">
+                    <SelectValue placeholder="Choose a client..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={String(client.id)}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {client.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
+
             </div>
             <div className="space-y-2">
               <Label htmlFor="routine-name">Routine Name</Label>
@@ -513,12 +539,12 @@ export default function TrainerRoutinesPage() {
           ) : (
             <div className="space-y-4">
               {routines.map((routine) => (
-                <Card key={routine.id} className="border p-4">                  
+                <Card key={routine.planId} className="border p-4">                  
                   <p className="text-sm text-muted-foreground">Start Date: {routine.startDate}</p>
                   <p className="text-sm">Frequency: {routine.frequency}</p>
 
                    <ul className="list-disc pl-5 mt-2">
-                    {routine.exercise_plan?.map((ex, index) => (
+                    {routine.exercises?.map((ex, index) => (
                       <li key={`${ex.name}-${index}`}>
                         {ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}
                       </li>
@@ -553,21 +579,26 @@ export default function TrainerRoutinesPage() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="client-select">Select Client</Label>
-            <Select value={selectedClient} onValueChange={setSelectedClient} disabled={isSaving}>
-              <SelectTrigger id="client-select">
-                <SelectValue placeholder="Choose a client..." />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {client.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Select
+                value={selectedClient !== null ? String(selectedClient) : undefined}
+                onValueChange={(val) => setSelectedClient(Number(val))}
+                disabled={isSaving}
+              >
+                <SelectTrigger id="client-select">
+                  <SelectValue placeholder="Choose a client..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={String(client.id)}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        {client.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
           </div>
           <div className="space-y-2">
             <Label htmlFor="start-date" className="flex items-center gap-1">
