@@ -1,15 +1,17 @@
+
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Activity, MessageSquare, ClipboardList } from "lucide-react";
-import Link from "next/link";
+import { Link, useRouter } from '@/navigation';
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import OnboardingModal from '@/components/trainer/onboarding-modal';
 import { useToast } from "@/hooks/use-toast";
 import { getUserData, UserData } from '@/lib/api';
+import { useTranslations } from 'next-intl';
 
 export default function TrainerDashboardPage() {
+  const t = useTranslations('TrainerDashboardPage');
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -26,53 +28,33 @@ export default function TrainerDashboardPage() {
       try {
         const data = await getUserData();
         setUser(data);
-
-        if (!data.is_onboarded) {
-          setShowOnboarding(true);
-        } else {
-          setShowOnboarding(false);
-        }
+        if (!data.is_onboarded) setShowOnboarding(true);
+        else setShowOnboarding(false);
       } catch (err: any) {
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
           localStorage.clear();
           router.push('/signin');
           return;
         }
-        toast({
-          title: 'Error',
-          description: 'Could not load your profile.',
-          variant: 'destructive',
-        });
+        toast({ title: t('errorLoadProfile'), variant: 'destructive' });
       } finally {
         setIsLoadingUser(false);
       }
     };
-
     loadUser();
-  }, [router, toast]);
+  }, [router, toast, t]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!user?.id) return;
-
     fetch(`https://vibrafit.onrender.com/api/users/${user.id}/`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
     })
-      .then(res => {
-        if (!res.ok) throw new Error('Could not load trainer');
-        return res.json();
-      })
-      .then((t: { clientCount: number; unreadMessages: number }) => {
-        setTrainerData({
-          clientCount: t.clientCount ?? 0,
-          unreadMessages: t.unreadMessages ?? 0,
-        });
+      .then(res => { if (!res.ok) throw new Error('Could not load trainer'); return res.json(); })
+      .then((tr: { clientCount: number; unreadMessages: number }) => {
+        setTrainerData({ clientCount: tr.clientCount ?? 0, unreadMessages: tr.unreadMessages ?? 0 });
       })
       .catch(console.error);
   }, [user]);
-
 
   const handleOnboardingClose = async () => {
     try {
@@ -80,111 +62,86 @@ export default function TrainerDashboardPage() {
       setUser(updatedUser);
       setShowOnboarding(!updatedUser.is_onboarded);
     } catch (error) {
-      toast({
-        title: 'Refresh Error',
-        description: 'Could not update your dashboard info.',
-        variant: 'destructive',
-      });
+      toast({ title: t('refreshErrorToastTitle'), description: t('refreshErrorToastDescription'), variant: 'destructive' });
     }
   };
 
-  if (!user) return <Card className="shadow-sm p-4">Loading…</Card>;
+  if (isLoadingUser || !user) return <Card className="shadow-sm p-4">{t('loadingUser')}</Card>;
   
   return (    
     <div className="space-y-8">
       {showOnboarding && (
-        <OnboardingModal
-          isOpen={showOnboarding}
-          onClose={handleOnboardingClose}
-          userId={user.id.toString()}
-        />
+        <OnboardingModal isOpen={showOnboarding} onClose={handleOnboardingClose} userId={user.id.toString()} />
       )}
-      <h1 className="text-3xl font-bold">Trainer Dashboard</h1>
-      <p className="text-muted-foreground">Oversee your clients and manage their progress.</p>
+      <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <p className="text-muted-foreground">{t('description')}</p>
 
-      {/* Quick Stats */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"> {/* Changed to lg:grid-cols-4 */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('activeClients')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{trainerData.clientCount}</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
+            <p className="text-xs text-muted-foreground">{t('clientsFromLastMonth', { count: 2})}</p>
           </CardContent>
         </Card>
          <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('unreadMessages')}</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{trainerData.unreadMessages}</div>
-             <p className="text-xs text-muted-foreground">Requires attention</p>
+             <p className="text-xs text-muted-foreground">{t('messagesRequireAttention')}</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Actions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('pendingActions')}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground">e.g., Plan reviews, check-ins</p>
+            <div className="text-2xl font-bold">5</div> {/* Placeholder */}
+            <p className="text-xs text-muted-foreground">{t('pendingActionsExample')}</p>
           </CardContent>
         </Card>
-        {/* New Card for Manage Client Routines */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Client Routines</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('clientRoutines')}</CardTitle>
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             <p className="text-xs text-muted-foreground mb-2">Create & manage workout plans.</p>
+             <p className="text-xs text-muted-foreground mb-2">{t('manageRoutinesDescription')}</p>
             <Link href="/trainer/routines" passHref>
-                <Button size="sm" className="w-full">Manage Routines</Button>
+                <Button size="sm" className="w-full">{t('manageRoutinesButton')}</Button>
             </Link>
           </CardContent>
         </Card>
       </div>
 
-       {/* Recent Client Activity */}
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Recent Client Activity</CardTitle>
-          <CardDescription>Latest updates from your clients.</CardDescription>
+          <CardTitle>{t('recentClientActivityTitle')}</CardTitle>
+          <CardDescription>{t('recentClientActivityDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-           {/* {trainerData.recentActivity.length === 0 ? (
-             <p className="text-muted-foreground text-center py-4">No recent client activity.</p>
-           ) : (
-             <ul className="space-y-4">
-                {trainerData.recentActivity.map((activity) => (
-                    <li key={activity.id} className="flex items-center justify-between gap-4 border-b pb-3 last:border-0">
-                        <div>
-                            <p className="text-sm font-medium">{activity.client}: <span className="text-muted-foreground">{activity.action}</span></p>
-                        </div>
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</p>
-                    </li>
-                ))} 
-             </ul>
-           )}*/}
+           <p className="text-muted-foreground text-center py-4">{t('noRecentClientActivity')}</p>
         </CardContent>
       </Card>
 
-        {/* Placeholder for Client List/Management */}
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Client Management</CardTitle>
-          <CardDescription>View and manage your client roster.</CardDescription>
+          <CardTitle>{t('clientManagementTitle')}</CardTitle>
+          <CardDescription>{t('clientManagementDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-           <p className="text-muted-foreground text-center py-8">Client list and management tools will appear here.</p>
-           {/* In a real app, this would be a table or list of clients with links to their profiles */}
+           <p className="text-muted-foreground text-center py-8">{t('clientManagementPlaceholder')}</p>
         </CardContent>
       </Card>
-
     </div>
   );
 }
+
+    

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -5,18 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useRouter } from 'next/navigation'; // Use next/navigation for App Router
+import { Link, useRouter } from '@/navigation'; // Use from new navigation config
+import { Loader2 } from 'lucide-react'; 
+import { useTranslations } from 'next-intl';
 
 export default function SignInPage() {
+  const t = useTranslations('SignInPage');
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSigningIn, setIsSigningIn] = useState(false); 
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSigningIn(true); 
 
     try {
       // Login
@@ -30,7 +35,7 @@ export default function SignInPage() {
   
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.detail || 'Login failed.');
+        setError(errorData.detail || t('errorLoginFailed'));
         return;
       }
   
@@ -76,8 +81,10 @@ export default function SignInPage() {
         router.push('/user/dashboard');
       }
     } catch (err: any) {
-      setError('An unexpected error occurred. Please try again.');
+      setError(t('errorUnexpected'));
       console.error('Signin error:', err.message || err);
+    } finally {
+      setIsSigningIn(false); 
     }
   };
 
@@ -85,42 +92,53 @@ export default function SignInPage() {
     <div className="flex justify-center items-center py-12">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Sign In to Vibrafit</CardTitle>
-          <CardDescription>Enter your credentials to access your account.</CardDescription>
+          <CardTitle className="text-2xl">{t('title')}</CardTitle>
+          <CardDescription>{t('description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t('emailPlaceholder')}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isSigningIn}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
                 required
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isSigningIn}
               />
             </div>
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
-            <Button type="submit" className="w-full">Sign In</Button>
+            <Button type="submit" className="w-full" disabled={isSigningIn}>
+              {isSigningIn ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('signingInButton')}
+                </>
+              ) : (
+                t('signInButton')
+              )}
+            </Button>
           </form>
         </CardContent>
         <CardFooter className="text-center text-sm">
           <p>
-            Don't have an account?{' '}
+            {t('noAccountPrompt')}{' '}
             <Link href="/signup" className="text-primary hover:underline">
-              Sign Up
+              {t('signUpLink')}
             </Link>
           </p>
         </CardFooter>
@@ -128,3 +146,5 @@ export default function SignInPage() {
     </div>
   );
 }
+
+    

@@ -1,15 +1,17 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // For file input
+import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Apple, CalendarDays, PlusCircle, Trash2, Utensils, Target, ImagePlus, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
-import Image from 'next/image'; // For image previews
+import Image from 'next/image'; 
+import { useTranslations } from 'next-intl';
 
 interface MealLog {
   id: string;
@@ -20,14 +22,15 @@ interface MealLog {
 
 interface UserGoalAndImages {
     goal: string;
-    images: File[]; // Store selected files for upload
-    imagePreviews: string[]; // Store Data URLs for previews
+    images: File[]; 
+    imagePreviews: string[]; 
 }
 
 // Simulate fetching/saving data (replace with actual API calls)
 async function fetchMeals(): Promise<MealLog[]> {
   await new Promise(resolve => setTimeout(resolve, 650));
   return [
+    // Sample data, could be localized if description keys are used
     { id: 'm1', date: new Date(Date.now() - 3600000), description: 'Lunch: Grilled chicken salad with vinaigrette.', calories: 450 },
     { id: 'm2', date: new Date(Date.now() - 18000000), description: 'Breakfast: Greek yogurt with granola and honey.', calories: 300 },
   ];
@@ -45,24 +48,19 @@ async function deleteMeal(id: string): Promise<{ success: boolean }> {
 }
 
 async function fetchUserGoalAndImages(userId: string): Promise<{ goal: string, imageUrls: string[] }> {
-    // Simulate fetching existing goal and image URLs
     await new Promise(resolve => setTimeout(resolve, 400));
-    return { goal: "", imageUrls: [] }; // Initially empty, or load from backend
+    return { goal: "", imageUrls: [] }; 
 }
 
 async function saveUserGoalAndImages(userId: string, goal: string, images: File[]): Promise<{ success: boolean }> {
     await new Promise(resolve => setTimeout(resolve, 1000));
     console.log("Saving goal:", goal, "for user:", userId);
     console.log("Saving images:", images.map(f => f.name));
-    // In a real app:
-    // 1. Upload images to cloud storage (e.g., Firebase Storage)
-    // 2. Get the URLs of the uploaded images
-    // 3. Save the goal text and image URLs to your database (e.g., Firestore)
     return { success: true };
 }
 
-
 export default function NutritionPage() {
+  const t = useTranslations('NutritionPage');
   const { toast } = useToast();
   const [newMealDescription, setNewMealDescription] = useState('');
   const [mealHistory, setMealHistory] = useState<MealLog[]>([]);
@@ -70,15 +68,12 @@ export default function NutritionPage() {
   const [isSavingMeal, setIsSavingMeal] = useState(false);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
 
-  // State for Goal and Images
   const [userGoalData, setUserGoalData] = useState<UserGoalAndImages>({ goal: '', images: [], imagePreviews: [] });
   const [isLoadingGoal, setIsLoadingGoal] = useState(true);
   const [isSavingGoal, setIsSavingGoal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-  // Simulating userId, replace with actual user ID from auth/context
-  const userId = "user123";
+  const userId = "user123"; // Simulating userId
 
   useEffect(() => {
     setIsLoadingMeals(true);
@@ -89,15 +84,14 @@ export default function NutritionPage() {
 
     setIsLoadingGoal(true);
     fetchUserGoalAndImages(userId).then(data => {
-        setUserGoalData(prev => ({ ...prev, goal: data.goal, imagePreviews: data.imageUrls /* Assume imageUrls are fetched if any exist */ }));
+        setUserGoalData(prev => ({ ...prev, goal: data.goal, imagePreviews: data.imageUrls }));
         setIsLoadingGoal(false);
     });
-
   }, [userId]);
 
   const handleAddMeal = async () => {
     if (!newMealDescription.trim()) {
-      toast({ title: "Empty Log", description: "Please describe your meal.", variant: "destructive" });
+      toast({ title: t('toastEmptyLogTitle'), description: t('toastEmptyLogDesc'), variant: "destructive" });
       return;
     }
     setIsSavingMeal(true);
@@ -106,12 +100,12 @@ export default function NutritionPage() {
       if (result.success && result.newMeal) {
         setMealHistory(prev => [result.newMeal!, ...prev]);
         setNewMealDescription('');
-        toast({ title: "Meal Logged", description: "Your meal has been added successfully." });
+        toast({ title: t('toastMealLoggedTitle'), description: t('toastMealLoggedDesc') });
       } else {
-        toast({ title: "Log Failed", description: "Could not save your meal.", variant: "destructive" });
+        toast({ title: t('toastLogFailedTitle'), description: t('toastLogFailedDesc'), variant: "destructive" });
       }
     } catch (error) {
-       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+       toast({ title: t('toastErrorTitle'), description: t('toastErrorDesc'), variant: "destructive" });
     } finally {
       setIsSavingMeal(false);
     }
@@ -123,12 +117,12 @@ export default function NutritionPage() {
       const result = await deleteMeal(id);
       if(result.success) {
         setMealHistory(prev => prev.filter(m => m.id !== id));
-        toast({ title: "Meal Deleted", description: "The meal log has been removed." });
+        toast({ title: t('toastMealDeletedTitle'), description: t('toastMealDeletedDesc') });
       } else {
-        toast({ title: "Deletion Failed", description: "Could not delete the meal log.", variant: "destructive" });
+        toast({ title: t('toastDeletionFailedTitle'), description: t('toastDeletionFailedDesc'), variant: "destructive" });
       }
     } catch (error) {
-      toast({ title: "Error", description: "An unexpected error occurred during deletion.", variant: "destructive" });
+      toast({ title: t('toastErrorTitle'), description: t('toastErrorDesc'), variant: "destructive" });
     } finally {
       setDeletingMealId(null);
     }
@@ -141,17 +135,13 @@ export default function NutritionPage() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      // Limit number of images if needed, e.g., to 3
       const newImages = filesArray.slice(0, 3 - userGoalData.images.length);
-
       const newPreviews = newImages.map(file => URL.createObjectURL(file));
-
       setUserGoalData(prev => ({
         ...prev,
         images: [...prev.images, ...newImages],
         imagePreviews: [...prev.imagePreviews, ...newPreviews],
       }));
-      // Clear file input for next selection
       if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -160,7 +150,6 @@ export default function NutritionPage() {
     setUserGoalData(prev => {
         const updatedImages = prev.images.filter((_, index) => index !== indexToRemove);
         const updatedPreviews = prev.imagePreviews.filter((_, index) => index !== indexToRemove);
-        // Revoke object URL for the removed preview to free up memory
         URL.revokeObjectURL(prev.imagePreviews[indexToRemove]);
         return { ...prev, images: updatedImages, imagePreviews: updatedPreviews };
     });
@@ -168,26 +157,23 @@ export default function NutritionPage() {
 
   const handleSaveGoalAndImages = async () => {
     if (!userGoalData.goal.trim()) {
-        toast({ title: "Goal Required", description: "Please enter your fitness goal.", variant: "destructive"});
+        toast({ title: t('toastGoalRequiredTitle'), description: t('toastGoalRequiredDesc'), variant: "destructive"});
         return;
     }
     setIsSavingGoal(true);
     try {
         const result = await saveUserGoalAndImages(userId, userGoalData.goal, userGoalData.images);
         if (result.success) {
-            toast({ title: "Goal & Images Saved", description: "Your fitness goal and images have been updated." });
-            // Optionally clear images after saving if desired, or refetch from backend
-            // setUserGoalData(prev => ({...prev, images: [], imagePreviews: []}));
+            toast({ title: t('toastGoalSavedTitle'), description: t('toastGoalSavedDesc') });
         } else {
-            toast({ title: "Save Failed", description: "Could not save your goal and images.", variant: "destructive" });
+            toast({ title: t('toastSaveFailedTitle'), description: t('toastSaveFailedDesc'), variant: "destructive" });
         }
     } catch (error) {
-        toast({ title: "Error", description: "An unexpected error occurred while saving.", variant: "destructive"});
+        toast({ title: t('toastErrorTitle'), description: t('toastErrorDesc'), variant: "destructive"});
     } finally {
         setIsSavingGoal(false);
     }
   };
-
 
   const todayCalories = mealHistory
     .filter(meal => format(meal.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
@@ -195,16 +181,15 @@ export default function NutritionPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Nutrition & Goals</h1>
-      <p className="text-muted-foreground">Log your meals, set your fitness goals, and share progress with your trainer.</p>
+      <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <p className="text-muted-foreground">{t('description')}</p>
 
-      {/* Goal Setting and Image Upload Section */}
       <Card className="shadow-lg border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-primary">
-            <Target className="h-6 w-6" /> My Fitness Goal & Progress
+            <Target className="h-6 w-6" /> {t('myFitnessGoalTitle')}
           </CardTitle>
-          <CardDescription>Set or update your primary fitness goal and upload current state images for your trainer.</CardDescription>
+          <CardDescription>{t('myFitnessGoalDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoadingGoal ? (
@@ -212,10 +197,10 @@ export default function NutritionPage() {
           ) : (
             <>
               <div>
-                <Label htmlFor="fitness-goal" className="text-base font-medium">Your Fitness Goal</Label>
+                <Label htmlFor="fitness-goal" className="text-base font-medium">{t('yourFitnessGoalLabel')}</Label>
                 <Textarea
                   id="fitness-goal"
-                  placeholder="e.g., Lose 5kg in 2 months, run a 10k under 60 minutes, increase bench press by 10kg..."
+                  placeholder={t('fitnessGoalPlaceholder')}
                   rows={3}
                   value={userGoalData.goal}
                   onChange={handleGoalChange}
@@ -224,8 +209,8 @@ export default function NutritionPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="progress-images" className="text-base font-medium">Progress Images (Optional)</Label>
-                <p className="text-xs text-muted-foreground mb-2">Upload up to 3 images (PNG, JPG, GIF).</p>
+                <Label htmlFor="progress-images" className="text-base font-medium">{t('progressImagesLabel')}</Label>
+                <p className="text-xs text-muted-foreground mb-2">{t('progressImagesDescription')}</p>
                 <Input
                   id="progress-images"
                   type="file"
@@ -243,7 +228,7 @@ export default function NutritionPage() {
                     <div key={index} className="relative group">
                       <Image
                         src={previewUrl}
-                        alt={`Progress image ${index + 1}`}
+                        alt={t('progressImageAlt', { index: index + 1 })}
                         width={150}
                         height={150}
                         className="rounded-md object-cover aspect-square border"
@@ -255,6 +240,7 @@ export default function NutritionPage() {
                         className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => handleRemoveImage(index)}
                         disabled={isSavingGoal}
+                        aria-label={t('deleteMealLabel')}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -268,35 +254,33 @@ export default function NutritionPage() {
         <CardFooter>
           <Button onClick={handleSaveGoalAndImages} disabled={isSavingGoal || isLoadingGoal || !userGoalData.goal.trim()}>
             <Save className="mr-2 h-4 w-4" />
-            {isSavingGoal ? 'Saving Goal...' : 'Save Goal & Images'}
+            {isSavingGoal ? t('savingGoalButton') : t('saveGoalButton')}
           </Button>
         </CardFooter>
       </Card>
 
-
        <Card className="shadow-sm bg-secondary">
            <CardHeader>
              <CardTitle className="text-lg flex items-center gap-2">
-                <Utensils className="h-5 w-5 text-primary"/> Today's Meal Summary
+                <Utensils className="h-5 w-5 text-primary"/> {t('todaysMealSummaryTitle')}
              </CardTitle>
            </CardHeader>
            <CardContent>
-              <p className="text-2xl font-bold">{todayCalories} kcal</p>
-              <p className="text-xs text-muted-foreground">(Estimated based on logged meals)</p>
+              <p className="text-2xl font-bold">{todayCalories} {t('caloriesUnit')}</p>
+              <p className="text-xs text-muted-foreground">{t('caloriesEstimation')}</p>
            </CardContent>
        </Card>
-
 
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <PlusCircle className="h-5 w-5 text-primary" /> Log New Meal
+            <PlusCircle className="h-5 w-5 text-primary" /> {t('logNewMealTitle')}
           </CardTitle>
-          <CardDescription>Describe what you ate and optionally estimate calories.</CardDescription>
+          <CardDescription>{t('logNewMealDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
-            placeholder="e.g., Breakfast: Scrambled eggs with spinach (~350 kcal)"
+            placeholder={t('mealLogPlaceholder')}
             rows={3}
             value={newMealDescription}
             onChange={(e) => setNewMealDescription(e.target.value)}
@@ -305,15 +289,15 @@ export default function NutritionPage() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleAddMeal} disabled={isSavingMeal || !newMealDescription.trim()}>
-            {isSavingMeal ? 'Logging...' : 'Log Meal'}
+            {isSavingMeal ? t('loggingMealButton') : t('logMealButton')}
           </Button>
         </CardFooter>
       </Card>
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Meal History</CardTitle>
-          <CardDescription>Your previously logged meals.</CardDescription>
+          <CardTitle>{t('mealHistoryTitle')}</CardTitle>
+          <CardDescription>{t('mealHistoryDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingMeals ? (
@@ -321,7 +305,7 @@ export default function NutritionPage() {
                {[1,2,3].map(i => <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>)}
              </div>
           ) : mealHistory.length === 0 ? (
-             <p className="text-muted-foreground text-center py-4">No meals logged yet. Add one above!</p>
+             <p className="text-muted-foreground text-center py-4">{t('noMealsLogged')}</p>
           ) : (
             <ul className="space-y-4">
               {mealHistory.map((meal) => (
@@ -337,7 +321,7 @@ export default function NutritionPage() {
                             {format(meal.date, 'PPP p')}
                         </span>
                          {meal.calories && (
-                            <span className="font-medium">{meal.calories} kcal</span>
+                            <span className="font-medium">{meal.calories} {t('caloriesUnit')}</span>
                          )}
                      </div>
                   </div>
@@ -346,7 +330,7 @@ export default function NutritionPage() {
                       size="icon"
                       onClick={() => handleDeleteMeal(meal.id)}
                       disabled={deletingMealId === meal.id}
-                      aria-label="Delete meal"
+                      aria-label={t('deleteMealLabel')}
                        className="text-muted-foreground hover:text-destructive"
                     >
                       {deletingMealId === meal.id ? (
@@ -362,7 +346,7 @@ export default function NutritionPage() {
         </CardContent>
          {mealHistory.length > 0 && (
              <CardFooter className="text-sm text-muted-foreground">
-                Showing your latest meal entries.
+                {t('latestEntriesFooter')}
              </CardFooter>
         )}
       </Card>
@@ -370,3 +354,4 @@ export default function NutritionPage() {
   );
 }
 
+    

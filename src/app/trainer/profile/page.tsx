@@ -10,33 +10,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { Save, Award, Info, Briefcase } from "lucide-react";
 import { CombinedProfileData, fetchCombinedProfile, saveTrainerProfile } from '@/lib/api';
 import { useToast } from "@/hooks/use-toast";
+import { useTranslations } from 'next-intl';
+
+// Assuming UserProfileData might be needed here if it has fields not in CombinedProfileData
+interface TrainerPageProfileData extends CombinedProfileData {
+  // Add any trainer-specific fields not in CombinedProfileData if necessary
+}
 
 export default function TrainerProfilePage() {
+  const t = useTranslations('TrainerProfilePage');
   const { toast } = useToast();
-  const [profile, setProfile] = useState<CombinedProfileData | null>(null);
+  const [profile, setProfile] = useState<TrainerPageProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [trainer, setTrainer] = useState(null);
-  const [hasTrainer, setHasTrainer] = useState(false);
-  const [trainerName, setTrainerName] = useState('');
+  // The 'trainer' and 'hasTrainer' states seem related to a user viewing a trainer, not a trainer's own profile.
+  // For a trainer editing their own profile, 'profile' state should be sufficient.
+  // const [trainer, setTrainer] = useState(null);
+  // const [hasTrainer, setHasTrainer] = useState(false);
+  // const [trainerName, setTrainerName] = useState('');
+
 
   useEffect(() => {
     (async () => {
+      setIsLoading(true);
       try {
         const data = await fetchCombinedProfile();
-        setProfile(data);
+        setProfile(data as TrainerPageProfileData); // Cast if necessary, ensure type alignment
       } catch (err: any) {
         console.error('Error loading profile:', err);
         toast({
-          title: 'Error',
-          description: err.message || 'Could not load profile data.',
+          title: t('toastErrorGeneric'),
+          description: err.message || t('errorLoadingProfile'),
           variant: 'destructive',
         });
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [toast]);
+  }, [toast, t]);
 
   const handleInputChange = (
       e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -47,94 +58,61 @@ export default function TrainerProfilePage() {
       setProfile(prev => {
         if (!prev) return prev;
         if (name === 'experience_years') {
-          const num = value === '' ? null : Number(value);
+          const num = value === '' ? null : Number(value); // Allow empty string to become null
           return { ...prev, experience_years: num };
         }
-
-                return { ...prev, [name]: value };
+        return { ...prev, [name]: value };
       });
     };
+    
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
 
-    useEffect(() => {
-      const fetchTrainerDetails = async () => {
-        if (!user?.trainerId) {
-          setHasTrainer(false);
-          return;
-        }
+    const yrs = profile.experience_years;
+    if (yrs !== null && (isNaN(yrs) || yrs < 0)) {
+      toast({
+        title: t('errorInvalidInput'),
+        description: t('errorExperienceYears'),
+        variant: 'destructive',
+      });
+      return;
+    }
 
-        setIsLoading(true);
-        try {
-          const trainerData = await fetchTrainerById(user.trainerId);
-          if (!trainerData) throw new Error("Trainer not found");
-
-          setTrainer(trainerData);
-          setTrainerName(`${trainerData.name || trainerData.full_name || 'Trainer'}`);
-          setHasTrainer(true);
-        } catch (err) {
-          console.error(err);
-          setHasTrainer(false);
-          toast({
-            title: "Error",
-            description: "Could not load trainer details.",
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoading(false);
-        }
+    setIsSaving(true);
+    try {
+      // Ensure we only send fields relevant to TrainerProfileData for saving
+      const toSave: Partial<TrainerProfileData> = {
+        bio: profile.bio,
+        certifications: profile.certifications,
+        specializations: Array.isArray(profile.specializations) ? profile.specializations : (profile.specializations as unknown as string || '').split(',').map(s => s.trim()).filter(s => s),
+        experience_years: profile.experience_years,
       };
 
-      fetchTrainerDetails();
-    }, [user?.trainerId]);
-
-    
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!profile) return;
-
-      const yrs = profile.experience_years;
-      if (yrs !== null && (isNaN(yrs) || yrs < 0)) {
+      const result = await saveTrainerProfile(toSave);
+      if (result.success) {
         toast({
-          title: 'Invalid Input',
-          description: 'Experience years must be a valid positive number.',
+          title: t('toastProfileUpdatedTitle'),
+          description: t('toastProfileUpdatedDesc'),
+        });
+      } else {
+        toast({
+          title: t('toastUpdateFailedTitle'),
+          description: t('toastUpdateFailedDesc'),
           variant: 'destructive',
         });
-        return;
       }
-
-      setIsSaving(true);
-      try {
-        const toSave = {
-          bio:           profile.bio,
-          certifications: profile.certifications,
-          specializations:    profile.specializations,
-          // rating:         profile.rating,
-          experience_years: profile.experience_years,
-        };
-
-        const result = await saveTrainerProfile(toSave);
-        if (result.success) {
-          toast({
-            title: 'Profile Updated',
-            description: 'Your profile information has been saved.',
-          });
-        } else {
-          toast({
-            title: 'Update Failed',
-            description: 'Could not save your profile.',
-            variant: 'destructive',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to save profile', error);
-        toast({
-          title: 'Error',
-          description: 'An unexpected error occurred.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsSaving(false);
-      }
-    };
+    } catch (error) {
+      console.error('Failed to save profile', error);
+      toast({
+        title: t('toastErrorGeneric'),
+        description: t('toastErrorGeneric'), // Re-use generic error message
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -154,36 +132,42 @@ export default function TrainerProfilePage() {
   }
 
   if (!profile) {
-    return <p className="text-destructive">Could not load profile data. Please try refreshing the page.</p>;
+    return <p className="text-destructive">{t('errorLoadingProfile')}</p>;
   }
+
+  // Specializations might be a string from API, ensure it's an array for joining or mapping
+  const specializationsString = Array.isArray(profile.specializations) 
+                                 ? profile.specializations.join(', ')
+                                 : (profile.specializations as unknown as string || '');
+
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">My Trainer Profile</h1>
-      <p className="text-muted-foreground">Showcase your expertise and experience to clients.</p>
+      <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <p className="text-muted-foreground">{t('description')}</p>
 
       <Card className="shadow-lg max-w-3xl border">
         <CardHeader>
-          <CardTitle>Professional Information</CardTitle>
-          <CardDescription>Update your details to keep clients informed.</CardDescription>
+          <CardTitle>{t('professionalInfoTitle')}</CardTitle>
+          <CardDescription>{t('professionalInfoDescription')}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" name="name" value={profile.name} onChange={handleInputChange} disabled={isSaving} placeholder="Your full name"/>
+                <Label htmlFor="name">{t('fullNameLabel')}</Label>
+                <Input id="name" name="name" value={profile.name || ''} onChange={handleInputChange} disabled={isSaving} placeholder={t('fullNamePlaceholder')}/>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" value={profile.email} disabled 
+                <Label htmlFor="email">{t('emailLabel')}</Label>
+                <Input id="email" name="email" type="email" value={profile.email || ''} disabled 
                  className="disabled:opacity-75 disabled:cursor-not-allowed"
                 />
                 </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="summary" className="flex items-center gap-2"><Info className="h-4 w-4 text-primary"/>Brief Summary</Label>
+              <Label htmlFor="bio" className="flex items-center gap-2"><Info className="h-4 w-4 text-primary"/>{t('summaryLabel')}</Label>
               <Textarea
                 id="bio"
                 name="bio"
@@ -191,55 +175,54 @@ export default function TrainerProfilePage() {
                 onChange={handleInputChange}
                 disabled={isSaving}
                 rows={4}
-                placeholder="Tell clients about yourself, your training philosophy, etc."
+                placeholder={t('summaryPlaceholder')}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="experienceYears" className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary"/>Years of Experience</Label>
+                    <Label htmlFor="experience_years" className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary"/>{t('experienceLabel')}</Label>
                     <Input
-                        id="experienceYears"
+                        id="experience_years"
                         name="experience_years"
                         type="number"
                         value={profile.experience_years ?? ''}
                         onChange={handleInputChange}
                         disabled={isSaving}
-                        placeholder="e.g., 5"
+                        placeholder={t('experiencePlaceholder')}
                         min="0"
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="certifications" className="flex items-center gap-2"><Award className="h-4 w-4 text-primary"/>Certifications</Label>
+                    <Label htmlFor="certifications" className="flex items-center gap-2"><Award className="h-4 w-4 text-primary"/>{t('certificationsLabel')}</Label>
                     <Input
                         id="certifications"
                         name="certifications"
-                        value={profile.certifications}
+                        value={profile.certifications || ''}
                         onChange={handleInputChange}
                         disabled={isSaving}
-                        placeholder="e.g., ACE CPT, NASM CES (comma-separated)"
+                        placeholder={t('certificationsPlaceholder')}
                     />
                 </div>
             </div>
 
-
             <div className="space-y-2">
-              <Label htmlFor="specializations">Specializations</Label>
+              <Label htmlFor="specializations">{t('specializationsLabel')}</Label>
               <Textarea
                 id="specializations"
                 name="specializations"
-                value={profile.specializations}
-                onChange={handleInputChange}
+                value={specializationsString} // Use the processed string for display
+                onChange={handleInputChange} // This will set profile.specializations directly as string
                 disabled={isSaving}
                 rows={3}
-                placeholder="e.g., Strength Training, Weight Loss, HIIT (comma-separated or list)"
+                placeholder={t('specializationsPlaceholder')}
               />
             </div>
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSaving} className="w-full md:w-auto">
               <Save className="mr-2 h-4 w-4" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? t('savingButton') : t('saveButton')}
             </Button>
           </CardFooter>
         </form>
@@ -247,3 +230,5 @@ export default function TrainerProfilePage() {
     </div>
   );
 }
+
+    

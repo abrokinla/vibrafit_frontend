@@ -1,11 +1,9 @@
 
-
 'use client';
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image'; 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { Link, useRouter, usePathname } from '@/navigation'; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
@@ -16,11 +14,13 @@ import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
 import OnboardingModal from '@/components/user/onboarding-modal';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
 import { uploadProgressPhoto } from '@/lib/utils'; 
+import { useTranslations } from 'next-intl';
 
-// Example data fetching functions
+// Example data fetching functions (These are illustrative)
 async function getRecentWorkouts() {
+  // In a real app, these would come from a service and be translated if needed
   return [
     { id: 1, type: 'workout' as const, description: 'Completed Full Body Blast routine', date: new Date(Date.now() - 86400000) },
     { id: 2, type: 'workout' as const, description: 'Logged 3km recovery jog', date: new Date(Date.now() - 172800000) },
@@ -34,9 +34,8 @@ async function getRecentMeals() {
   ];
 }
 
-
-
 export default function UserDashboardPage() {
+   const t = useTranslations('UserDashboardPage');
    const router = useRouter();
    const { toast } = useToast();
    const [user, setUser] = useState<UserData | null>(null);
@@ -54,7 +53,6 @@ export default function UserDashboardPage() {
    const beforeFileInputRef = useRef<HTMLInputElement>(null);
    const currentFileInputRef = useRef<HTMLInputElement>(null);
 
-
    useEffect(() => {
     const loadUser = async () => {
       setIsLoadingUser(true);
@@ -69,15 +67,13 @@ export default function UserDashboardPage() {
         }
       } catch (err: any) {      
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
-          // Clear everything and kick back to sign-in
           localStorage.clear();
           router.push('/signin');
           return;
         }
         console.error('Failed to load user:', err);
         toast({
-          title: 'Error',
-          description: 'Could not load your profile.',
+          title: t('errorLoadProfile'),
           variant: 'destructive',
         });
       } finally {
@@ -86,7 +82,7 @@ export default function UserDashboardPage() {
     };
 
     loadUser();
-  }, [router, toast]);
+  }, [router, toast, t]);
 
   useEffect(() => {
     if (!user?.trainerId) return;
@@ -101,32 +97,25 @@ export default function UserDashboardPage() {
         if (!res.ok) throw new Error('Could not load trainer');
         return res.json();
       })
-      .then((t: { name: string }) => setTrainerName(t.name))
+      .then((trainer: { name: string }) => setTrainerName(trainer.name))
       .catch(console.error);
   }, [user]);
 
-  // still loading user?
-  if (!user) return <Card className="shadow-sm p-4">Loading…</Card>;
-
-  const hasTrainer = Boolean(user.trainerId);
 
    const handleOnboardingComplete = async () => {
-    try {
-      console.log("Onboarding completed, refreshing user data...");     
+    try {   
       const updatedUser = await getUserData();    
       setUser(updatedUser);
-      
       setShowOnboarding(!updatedUser.is_onboarded);
-      
       toast({
-        title: 'Welcome!',
-        description: "You're all set up.",
+        title: t('welcomeToastTitle'),
+        description: t('welcomeToastDescription'),
       });
     } catch (error) {
       console.error('Failed to refresh after onboarding', error);
       toast({
-        title: 'Refresh Error',
-        description: 'Could not update your dashboard info.',
+        title: t('refreshErrorToastTitle'),
+        description: t('refreshErrorToastDescription'),
         variant: 'destructive',
       });
     }
@@ -143,7 +132,6 @@ export default function UserDashboardPage() {
         const setPreview = photoType === 'before' ? setBeforePhotoPreview : setCurrentPhotoPreview;
         const dbField = photoType === 'before' ? 'beforePhotoUrl' : 'currentPhotoUrl';
 
-
         setIsUploading(true);
         const tempPreviewUrl = URL.createObjectURL(file);
         setPreview(tempPreviewUrl);
@@ -152,16 +140,16 @@ export default function UserDashboardPage() {
             const result = await uploadProgressPhoto(user.id.toString(), photoType, file);
             if (result.success && result.newUrl) {
                 setUser(prev => prev ? { ...prev, [dbField]: result.newUrl } : null);
-                toast({ title: `${photoType === 'before' ? 'Before' : 'Current'} Photo Updated!`, description: "Your photo has been saved." });
+                toast({ title: t('photoUpdatedToastTitle', { photoType: photoType.charAt(0).toUpperCase() + photoType.slice(1) }), description: t('photoUpdatedToastDescription') });
             } else {
-                toast({ title: "Upload Failed", description: "Could not save your photo.", variant: "destructive" });
-                setPreview(user[dbField]); 
+                toast({ title: t('uploadFailedToastTitle'), description: t('uploadFailedToastDescription'), variant: "destructive" });
+                setPreview(user[dbField as keyof UserData] as string | null); 
                 URL.revokeObjectURL(tempPreviewUrl);
             }
         } catch (error) {
             console.error(`Failed to upload ${photoType} photo:`, error);
-            toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
-            setPreview(user[dbField]);
+            toast({ title: t('errorUnexpected'), variant: "destructive" });
+            setPreview(user[dbField as keyof UserData] as string | null);
             URL.revokeObjectURL(tempPreviewUrl);
         } finally {
             setIsUploading(false);
@@ -169,13 +157,12 @@ export default function UserDashboardPage() {
         }
     };
 
-
    if (isLoadingUser || !user) {
      return (
         <div className="space-y-8 animate-pulse">
             <div className="h-10 w-1/2 bg-muted rounded"></div>
             <div className="h-24 bg-muted rounded"></div>
-            <div className="h-32 bg-muted rounded"></div> {/* Start training placeholder */}
+            <div className="h-32 bg-muted rounded"></div>
             <div className="grid gap-6 md:grid-cols-3">
                 <div className="h-24 bg-muted rounded"></div>
                 <div className="h-24 bg-muted rounded"></div>
@@ -188,7 +175,6 @@ export default function UserDashboardPage() {
      );
    }
 
-
   return (
     <div className="space-y-8">
         <OnboardingModal
@@ -197,50 +183,47 @@ export default function UserDashboardPage() {
             userId={user.id.toString()}
         />
 
-      <h1 className="text-3xl font-bold">Welcome back, {user.name}!</h1>
+      <h1 className="text-3xl font-bold">{t('welcomeBack', { name: user.name })}</h1>
 
-      {/* <Suspense fallback={<Card><CardHeader><CardTitle>Loading Motivation...</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
-        // COMMENT @ts-expect-error Server Component
-        <AiMotivationCard userId={user.id} goal={user.goal || ''} progress={user.currentProgress} />
-      </Suspense> */}
+      <Suspense fallback={<Card><CardHeader><CardTitle>{t('loadingMotivation')}</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
+        {/* @ts-expect-error Server Component */}
+        <AiMotivationCard userId={user.id.toString()} goal={user.goal || ''} progress={""} />
+      </Suspense>
 
-      {/* Start Training CTA */}
       <Card className="shadow-md bg-gradient-to-r from-teal-500 to-primary hover:shadow-lg transition-shadow">
         <CardHeader>
             <CardTitle className="text-2xl text-primary-foreground flex items-center gap-2">
-                <Play className="h-7 w-7" /> Ready for Today's Workout?
+                <Play className="h-7 w-7" /> {t('readyForWorkoutTitle')}
             </CardTitle>
             <CardDescription className="text-teal-100">
-                Access your personalized routine and track your progress.
+                {t('readyForWorkoutDescription')}
             </CardDescription>
         </CardHeader>
         <CardContent>
              <Link href="/user/workouts" passHref>
                 <Button size="lg" variant="secondary" className="w-full md:w-auto shadow-md hover:bg-white/90 text-primary font-semibold">
-                    Go to My Workouts
+                    {t('goToWorkoutsButton')}
                 </Button>
             </Link>
         </CardContent>
       </Card>
 
-
-      {/* Progress Pictures Section */}
       <Card className="shadow-md">
         <CardHeader>
             <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5 text-primary" /> Progress Pictures
+                <Camera className="h-5 w-5 text-primary" /> {t('progressPicturesTitle')}
             </CardTitle>
-            <CardDescription>Track your visual transformation. Upload your before and current photos.</CardDescription>
+            <CardDescription>{t('progressPicturesDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-6">
             <div className="space-y-3">
-                <Label htmlFor="before-photo-input" className="text-lg font-semibold">Before</Label>
+                <Label htmlFor="before-photo-input" className="text-lg font-semibold">{t('beforeLabel')}</Label>
                 <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                     <Image
                         src={beforePhotoPreview || user.beforePhotoUrl || "https://placehold.co/400x400.png"}
-                        alt="Before progress"
-                        layout="fill"
-                        objectFit="cover"
+                        alt={t('beforePhotoAlt')}
+                        fill
+                        style={{objectFit:"cover"}}
                         className={isUploadingBefore ? 'opacity-50' : ''}
                         data-ai-hint="fitness before"
                     />
@@ -262,18 +245,18 @@ export default function UserDashboardPage() {
                     disabled={isUploadingBefore}
                 >
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    {isUploadingBefore ? 'Uploading...' : (user.beforePhotoUrl || beforePhotoPreview ? 'Change Before Photo' : 'Upload Before Photo')}
+                    {isUploadingBefore ? t('uploadingButton') : (user.beforePhotoUrl || beforePhotoPreview ? t('changeBeforeButton') : t('uploadBeforeButton'))}
                 </Button>
             </div>
 
             <div className="space-y-3">
-                <Label htmlFor="current-photo-input" className="text-lg font-semibold">Current</Label>
+                <Label htmlFor="current-photo-input" className="text-lg font-semibold">{t('currentLabel')}</Label>
                  <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                     <Image
                         src={currentPhotoPreview || user.currentPhotoUrl || "https://placehold.co/400x400.png"}
-                        alt="Current progress"
-                        layout="fill"
-                        objectFit="cover"
+                        alt={t('currentPhotoAlt')}
+                        fill
+                        style={{objectFit:"cover"}}
                         className={isUploadingCurrent ? 'opacity-50' : ''}
                         data-ai-hint="fitness after"
                     />
@@ -295,102 +278,99 @@ export default function UserDashboardPage() {
                     disabled={isUploadingCurrent}
                 >
                     <UploadCloud className="mr-2 h-4 w-4" />
-                     {isUploadingCurrent ? 'Uploading...' : (user.currentPhotoUrl || currentPhotoPreview ? 'Update Current Photo' : 'Upload Current Photo')}
+                     {isUploadingCurrent ? t('uploadingButton') : (user.currentPhotoUrl || currentPhotoPreview ? t('updateCurrentButton') : t('uploadCurrentButton'))}
                 </Button>
             </div>
         </CardContent>
         <CardFooter>
-            <p className="text-xs text-muted-foreground">These images can be shared with your trainer to track visual progress.</p>
+            <p className="text-xs text-muted-foreground">{t('photoShareDisclaimer')}</p>
         </CardFooter>
       </Card>
-
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Weight</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('weightCardTitle')}</CardTitle>
             <Scale className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-- kg</div> {/* This would come from measurements page */}
+            <div className="text-2xl font-bold">-- kg</div>
             <Link href="/user/measurements" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">Update in Measurements</Button>
+                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('updateInMeasurementsLink')}</Button>
             </Link>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Workouts This Week</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('workoutsThisWeekCardTitle')}</CardTitle>
             <Dumbbell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">--</div> {/* This would be calculated */}
+            <div className="text-2xl font-bold">--</div>
             <Link href="/user/workouts" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">Log in Workouts</Button>
+                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInWorkoutsLink')}</Button>
             </Link>
           </CardContent>
         </Card>
          <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Calories Today</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('caloriesTodayCardTitle')}</CardTitle>
             <Apple className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">----</div> {/* This would come from nutrition page */}
+            <div className="text-2xl font-bold">----</div>
             <Link href="/user/nutrition" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">Log in Nutrition</Button>
+                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInNutritionLink')}</Button>
             </Link>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
-      <CardHeader className="flex items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">
-          {hasTrainer ? 'Your Trainer' : 'Find a Trainer'}
-        </CardTitle>
-        <UserPlus className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-
-      <CardContent>
-        {hasTrainer ? (
-          <>
-            <div className="text-lg font-bold">
-              {trainerName ?? 'Loading…'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              You’re connected!
-            </p>
-            <Link href={`/user/find-trainer/${user.trainerId}`} passHref>
-              <Button
-                variant="link"
-                size="sm"
-                className="text-xs p-0 h-auto mt-1"
-              >
-                View Trainer Profile
-              </Button>
-            </Link>
-          </>
-        ) : (
-          <>
-            <div className="text-sm text-muted-foreground mb-2">
-              Get personalized guidance.
-            </div>
-            <Link href="/user/find-trainer" passHref>
-              <Button size="sm" className="w-full">
-                Browse Trainers
-              </Button>
-            </Link>
-          </>
-        )}
-      </CardContent>
-    </Card>
-    
+          <CardHeader className="flex items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              {hasTrainer ? t('yourTrainerCardTitle') : t('findTrainerCardTitle')}
+            </CardTitle>
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {hasTrainer ? (
+              <>
+                <div className="text-lg font-bold">
+                  {trainerName ?? t('loadingUser')}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t('youAreConnected')}
+                </p>
+                <Link href={`/user/find-trainer/${user.trainerId}` as any} passHref>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-xs p-0 h-auto mt-1"
+                  >
+                    {t('viewTrainerProfileLink')}
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="text-sm text-muted-foreground mb-2">
+                  {t('getPersonalizedGuidance')}
+                </div>
+                <Link href="/user/find-trainer" passHref>
+                  <Button size="sm" className="w-full">
+                    {t('browseTrainersButton')}
+                  </Button>
+                </Link>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
        <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Weight Progress</CardTitle>
-          <CardDescription>Your weight trend (Update in Measurements).</CardDescription>
+          <CardTitle>{t('weightProgressCardTitle')}</CardTitle>
+          <CardDescription>{t('weightProgressDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
            <ProgressOverviewChart />
@@ -399,7 +379,7 @@ export default function UserDashboardPage() {
 
        <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>{t('recentActivityCardTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
            {isLoadingFeed ? (

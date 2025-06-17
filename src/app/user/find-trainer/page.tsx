@@ -6,9 +6,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Briefcase, Zap, UserCircle, Star } from "lucide-react"; // Added Star for ratings
+import { Link } from '@/navigation'; 
+import { Briefcase, Zap, UserCircle, Star } from "lucide-react"; 
 import { Badge } from '@/components/ui/badge';
+import { useTranslations } from 'next-intl';
 
 interface TrainerSummary {
   id: string;
@@ -32,6 +33,7 @@ async function fetchAvailableTrainers(): Promise<TrainerSummary[]> {
 }
 
 export default function FindTrainerPage() {
+  const t = useTranslations('FindTrainerPage');
   const [trainers, setTrainers] = useState<TrainerSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,22 +42,23 @@ export default function FindTrainerPage() {
     fetchAvailableTrainers().then(data => {
       setTrainers(data);
       setIsLoading(false);
+    }).catch(err => {
+      console.error("Error fetching trainers:", err);
+      setIsLoading(false);
     });
   }, []);
 
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Find Your Trainer</h1>
-        <p className="text-muted-foreground">
-          Browse our certified trainers and find the perfect match for your fitness journey.
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('description')}</p>
       </header>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
-            <Card key={i} className="shadow-md animate-pulse">
+            <Card key={i} className="shadow-md animate-pulse" aria-label={t('loadingAlt')}>
               <CardHeader className="items-center text-center">
                 <div className="h-24 w-24 rounded-full bg-muted mb-3"></div>
                 <div className="h-6 w-1/2 bg-muted rounded"></div>
@@ -77,7 +80,7 @@ export default function FindTrainerPage() {
           ))}
         </div>
       ) : trainers.length === 0 ? (
-        <p className="text-muted-foreground text-center py-10">No trainers available at the moment. Please check back later.</p>
+        <p className="text-muted-foreground text-center py-10">{t('noTrainersAvailable')}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {trainers.map((trainer) => (
@@ -94,17 +97,16 @@ export default function FindTrainerPage() {
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                     <span>{trainer.rating.toFixed(1)}</span>
-                     {/* <span className="ml-1">(Placeholder Reviews)</span> */}
                   </div>
                 )}
               </CardHeader>
               <CardContent className="flex-grow">
                 <p className="text-sm text-muted-foreground line-clamp-3 mb-3">{trainer.bio}</p>
-                {trainer.specializations.length > 0 && (
+                {trainer.specializations && trainer.specializations.length > 0 && (
                   <div className="mb-3">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">Specializes in:</h4>
+                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">{t('specializesInLabel')}</h4>
                     <div className="flex flex-wrap gap-2">
-                      {trainer.specializations.slice(0, 3).map((spec) => ( // Show max 3 specializations
+                      {trainer.specializations.slice(0, 3).map((spec) => ( 
                         <Badge key={spec} variant="secondary" className="text-xs">{spec}</Badge>
                       ))}
                     </div>
@@ -112,9 +114,9 @@ export default function FindTrainerPage() {
                 )}
               </CardContent>
               <CardFooter>
-                <Link href={`/user/find-trainer/${trainer.id}`} passHref className="w-full">
+                <Link href={`/user/find-trainer/${trainer.id}` as any} passHref className="w-full">
                   <Button className="w-full">
-                    <UserCircle className="mr-2 h-4 w-4" /> View Profile & Subscribe
+                    <UserCircle className="mr-2 h-4 w-4" /> {t('viewProfileButton')}
                   </Button>
                 </Link>
               </CardFooter>
@@ -125,3 +127,5 @@ export default function FindTrainerPage() {
     </div>
   );
 }
+
+    

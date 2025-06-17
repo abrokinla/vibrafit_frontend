@@ -1,8 +1,7 @@
 
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { Link, useRouter, usePathname } from '@/navigation'; 
 import { LayoutDashboard, ClipboardList, User, LogOut, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,29 +17,35 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { getUserData, UserData } from '@/lib/api';
+import { getUserData, UserData } from '@/lib/api'; 
 import { uploadProfilePicture } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
 
-const navItems = [
-  { href: '/trainer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/trainer/routines', label: 'Client Routines', icon: ClipboardList },
-  { href: '/trainer/profile', label: 'My Profile', icon: User },
-];
+interface TrainerSidebarData { 
+  name: string;
+  profilePictureUrl: string | null;
+}
 
 export default function TrainerSidebarContent() {
+  const t = useTranslations('TrainerSidebar');
   const pathname = usePathname();
-  const router = useRouter()
+  const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // const [userData, setUserData] = useState<UserSidebarData | null>(null);
-  const [userData, setUserData] = useState<userData | null>(null);
+  const [trainerData, setTrainerData] = useState<TrainerSidebarData | null>(null); 
   const [isUploading, setIsUploading] = useState(false);
+
+  const navItems = [
+    { href: '/trainer/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/trainer/routines', label: t('clientRoutines'), icon: ClipboardList },
+    { href: '/trainer/profile', label: t('myProfile'), icon: User },
+  ];
 
   useEffect(() => {
     const load = async () => {
       try {
         const data = await getUserData();
-        setUserData({
+        setTrainerData({ 
           name: data.name,
           profilePictureUrl: data.profilePictureUrl,
         });
@@ -51,15 +56,11 @@ export default function TrainerSidebarContent() {
           return;
         }
         console.error('Failed to load sidebar user:', err);
-        toast({
-          title: 'Error',
-          description: 'Could not load user info.',
-          variant: 'destructive',
-        });
+        // Toast handled by page
       }
     };
     load();
-  }, [router, toast]);
+  }, [router]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -72,28 +73,27 @@ export default function TrainerSidebarContent() {
       try {
         const result = await uploadProfilePicture(file);
         if (result.success && result.newUrl) {
-          setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
+          setTrainerData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
           toast({
-            title: "Profile Picture Updated",
-            description: "Your new profile picture has been set.",
+            title: t('toastProfilePicUpdatedTitle'),
+            description: t('toastProfilePicUpdatedDesc'),
           });
         } else {
            toast({
-            title: "Upload Failed",
-            description: "Could not upload your profile picture.",
+            title: t('toastUploadFailedTitle'),
+            description: t('toastUploadFailedDesc'),
             variant: "destructive",
           });
         }
       } catch (error) {
         console.error("Failed to upload profile picture:", error);
         toast({
-            title: "Error",
-            description: "An unexpected error occurred during upload.",
+            title: t('toastErrorTitle'),
+            description: t('toastErrorDesc'),
             variant: "destructive",
         });
       } finally {
         setIsUploading(false);
-         // Reset file input to allow re-uploading the same file if needed
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -102,15 +102,14 @@ export default function TrainerSidebarContent() {
   };
 
   const handleSignOut = () => {
-    console.log('Trainer signing out...');
-    toast({ title: "Signed Out", description: "You have been successfully signed out." });
+    localStorage.clear();
+    toast({ title: t('toastSignedOutTitle'), description: t('toastSignedOutDesc') });
     router.push('/signin');
   };
 
   return (
     <>
       <SidebarHeader className="p-4 group-data-[state=expanded]/sidebar:border-b">
-        {/* Expanded View */}
         <div className="flex flex-col items-center space-y-2 group-data-[state=collapsed]/sidebar:hidden">
           <Avatar
             className="h-24 w-24 cursor-pointer ring-2 ring-offset-2 ring-primary hover:ring-accent transition-all"
@@ -120,8 +119,8 @@ export default function TrainerSidebarContent() {
             onKeyDown={(e) => e.key === 'Enter' && handleAvatarClick()}
             data-ai-hint="trainer avatar"
           >
-            {userData?.profilePictureUrl ? (
-              <AvatarImage src={userData.profilePictureUrl} alt={userData?.name || 'Trainer'} />
+            {trainerData?.profilePictureUrl ? (
+              <AvatarImage src={trainerData.profilePictureUrl} alt={trainerData?.name || 'Trainer'} />
             ) : (
               <AvatarFallback className="text-3xl bg-muted">
                 {isUploading ? <Upload className="h-8 w-8 animate-pulse text-primary" /> : <User className="h-10 w-10 text-muted-foreground" />}
@@ -136,12 +135,11 @@ export default function TrainerSidebarContent() {
             className="hidden"
             disabled={isUploading}
           />
-          {userData?.name && <p className="text-sm font-medium">{userData.name}</p>}
+          {trainerData?.name && <p className="text-sm font-medium">{trainerData.name}</p>}
           <Button variant="link" size="sm" onClick={handleAvatarClick} disabled={isUploading} className="text-xs p-0 h-auto text-primary">
-            {isUploading ? 'Uploading...' : 'Change Picture'}
+            {isUploading ? t('uploading') : t('changePicture')}
           </Button>
         </div>
-        {/* Collapsed View */}
          <div className="hidden flex-col items-center group-data-[state=expanded]/sidebar:hidden group-data-[state=collapsed]/sidebar:flex">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
@@ -154,8 +152,8 @@ export default function TrainerSidebarContent() {
                   onKeyDown={(e) => e.key === 'Enter' && handleAvatarClick()}
                    data-ai-hint="trainer avatar small"
                 >
-                  {userData?.profilePictureUrl ? (
-                    <AvatarImage src={userData.profilePictureUrl} alt={userData?.name || 'Trainer'} />
+                  {trainerData?.profilePictureUrl ? (
+                    <AvatarImage src={trainerData.profilePictureUrl} alt={trainerData?.name || 'Trainer'} />
                   ) : (
                      <AvatarFallback className="text-xl bg-muted">
                        {isUploading ? <Upload className="h-5 w-5 animate-pulse text-primary" /> : <User className="h-6 w-6 text-muted-foreground" />}
@@ -164,8 +162,8 @@ export default function TrainerSidebarContent() {
                 </Avatar>
               </TooltipTrigger>
               <TooltipContent side="right" align="center">
-                <p>{userData?.name || 'Trainer Profile'}</p>
-                <p className="text-xs text-muted-foreground">Click to change picture</p>
+                <p>{trainerData?.name || t('trainerProfileTooltip')}</p>
+                <p className="text-xs text-muted-foreground">{t('changePicture')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -184,7 +182,7 @@ export default function TrainerSidebarContent() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href as any} passHref legacyBehavior>
                 <SidebarMenuButton
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={cn(
@@ -206,9 +204,9 @@ export default function TrainerSidebarContent() {
       <SidebarFooter className="p-4 group-data-[state=expanded]/sidebar:border-t">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton variant="ghost" className="w-full justify-start" onClick={handleSignOut} tooltip={{children: "Sign Out", side:"right", align:"center"}}>
+            <SidebarMenuButton variant="ghost" className="w-full justify-start" onClick={handleSignOut} tooltip={{children: t('signOut'), side:"right", align:"center"}}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">Sign Out</span>
+              <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">{t('signOut')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -216,3 +214,5 @@ export default function TrainerSidebarContent() {
     </>
   );
 }
+
+    

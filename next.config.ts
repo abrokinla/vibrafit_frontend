@@ -1,7 +1,10 @@
+
+import createNextIntlPlugin from 'next-intl/plugin';
 import type {NextConfig} from 'next';
 
+const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
+
 export const nextConfig: NextConfig = {    
-  trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -26,4 +29,5 @@ export const nextConfig: NextConfig = {
     unoptimized: true, 
   },
 };
-export default nextConfig;
+
+export default withNextIntl(nextConfig);

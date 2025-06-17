@@ -1,4 +1,4 @@
-// Improved onboarding modal with debugging and improved error handling
+
 'use client';
 import { useState } from 'react';
 import {
@@ -10,11 +10,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input'; // Use ShadCN Input
+import { Label } from '@/components/ui/label'; // Use ShadCN Label
 import { useToast } from '@/hooks/use-toast';
+import { useTranslations } from 'next-intl';
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onClose: () => void; // Function to call when onboarding is completed
+  onClose: () => void; 
   userId: string;
 }
 
@@ -29,8 +32,6 @@ async function completeOnboardingProcess(
     throw new Error('Missing access token – please sign in again.');
   }
 
-  console.log("Sending onboarding data:", { userId, name, country, state }); // Debug log
-
   const res = await fetch(
     `https://vibrafit.onrender.com/api/users/${userId}/onboard/`,
     {
@@ -43,19 +44,11 @@ async function completeOnboardingProcess(
     }
   );
 
-  // Log the full response for debugging
-  console.log("Onboarding API response status:", res.status);
-  
-  // Parse the response data
   let responseData;
   try {
     responseData = await res.json();
-    console.log("Onboarding API response data:", responseData);
   } catch (e) {
-    console.error("Failed to parse response as JSON", e);
-    // If it's not JSON, try to get text
     const text = await res.text();
-    console.log("Response as text:", text);
     responseData = { message: text };
   }
 
@@ -67,6 +60,7 @@ async function completeOnboardingProcess(
 }
 
 export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingModalProps) {
+  const t = useTranslations('OnboardingModal');
   const [name, setName] = useState('');
   const [country, setCountry] = useState('');
   const [state, setState] = useState('');
@@ -77,27 +71,23 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
     e.preventDefault();
     setIsSaving(true);
     try {
-      console.log("Starting onboarding process..."); // Debug logging
       const result = await completeOnboardingProcess(userId, name, country, state);
-      console.log("Onboarding process result:", result); // Debug logging
       
       if (result.success) {
         toast({
-          title: 'Welcome Aboard!',
-          description: "You're all set to start your Vibrafit journey.",
+          title: t('toastWelcomeTitle'),
+          description: t('toastWelcomeDescription'),
         });
         
-        // Add a small delay before closing to ensure API processing completes
         setTimeout(() => {
-          console.log("Calling onClose callback..."); // Debug logging
-          onClose(); // Call the onClose handler to notify the parent component
+          onClose(); 
         }, 500);
       }
     } catch (error: any) {
       console.error('Failed to complete onboarding:', error);
       toast({
-        title: 'Error',
-        description: error.message || 'An unexpected error occurred.',
+        title: t('toastErrorTitle'),
+        description: error.message || t('toastErrorDescription'),
         variant: 'destructive',
       });
     } finally {
@@ -117,41 +107,50 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
         hideCloseButton
       >
         <DialogHeader>
-          <DialogTitle>Welcome to Vibrafit!</DialogTitle>
+          <DialogTitle>{t('dialogTitle')}</DialogTitle>
           <DialogDescription>
-            We're excited to have you. Let's set up your profile to begin your fitness journey.
+            {t('dialogDescription')}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Your Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Country"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="State"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            required
-            className="w-full p-2 border rounded"
-          />
+        <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-name">{t('namePlaceholder')}</Label>
+            <Input
+              id="onboarding-name"
+              type="text"
+              placeholder={t('namePlaceholder')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-country">{t('countryPlaceholder')}</Label>
+            <Input
+              id="onboarding-country"
+              type="text"
+              placeholder={t('countryPlaceholder')}
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-state">{t('statePlaceholder')}</Label>
+            <Input
+              id="onboarding-state"
+              type="text"
+              placeholder={t('statePlaceholder')}
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              required
+            />
+          </div>
 
           <DialogFooter className="pt-4">
             <Button type="submit" disabled={isSaving} className="w-full">
-              {isSaving ? 'Setting Up...' : 'Continue to Dashboard'}
+              {isSaving ? t('settingUpButton') : t('continueButton')}
             </Button>
           </DialogFooter>
         </form>
@@ -159,3 +158,5 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
     </Dialog>
   );
 }
+
+    

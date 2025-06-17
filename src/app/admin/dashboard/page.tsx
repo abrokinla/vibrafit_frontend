@@ -1,5 +1,8 @@
+
+'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserCheck, BarChart, Settings } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 // Placeholder data - replace with actual data fetching from backend API
 const adminData = {
@@ -10,51 +13,53 @@ const adminData = {
 };
 
 export default function AdminDashboardPage() {
+  const t = useTranslations('AdminDashboardPage');
+
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-      <p className="text-muted-foreground">Manage users, trainers, and application settings.</p>
+      <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <p className="text-muted-foreground">{t('description')}</p>
 
       {/* Key Metrics */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('totalUsers')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{adminData.totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+50 since last week</p>
+            <p className="text-xs text-muted-foreground">{t('usersSinceLastWeek', { count: 50 })}</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Trainers</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('totalTrainers')}</CardTitle>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{adminData.totalTrainers}</div>
-             <p className="text-xs text-muted-foreground">+2 since last month</p>
+             <p className="text-xs text-muted-foreground">{t('trainersSinceLastMonth', { count: 2 })}</p>
           </CardContent>
         </Card>
          <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('activeSubscriptions')}</CardTitle>
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{adminData.activeSubscriptions.toLocaleString()}</div>
-             <p className="text-xs text-muted-foreground">~{((adminData.activeSubscriptions / adminData.totalUsers) * 100).toFixed(0)}% conversion</p>
+             <p className="text-xs text-muted-foreground">{t('conversionRate', { rate: ((adminData.activeSubscriptions / adminData.totalUsers) * 100).toFixed(0) })}</p>
           </CardContent>
         </Card>
          <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue (Est.)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('monthlyRevenue')}</CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" /> {/* Using Settings as a placeholder */}
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${adminData.monthlyRevenue.toLocaleString()}</div>
-             <p className="text-xs text-muted-foreground">Based on active subscriptions</p>
+             <p className="text-xs text-muted-foreground">{t('revenueBasedOnSubscriptions')}</p>
           </CardContent>
         </Card>
       </div>
@@ -63,38 +68,36 @@ export default function AdminDashboardPage() {
        <div className="grid gap-6 md:grid-cols-2">
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>View, search, and manage user accounts.</CardDescription>
+              <CardTitle>{t('userManagementTitle')}</CardTitle>
+              <CardDescription>{t('userManagementDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
-               <p className="text-muted-foreground text-center py-8">User management tools will appear here.</p>
-               {/* Table or list for user management */}
+               <p className="text-muted-foreground text-center py-8">{t('userManagementPlaceholder')}</p>
             </CardContent>
           </Card>
 
            <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Trainer Management</CardTitle>
-              <CardDescription>Approve, manage, and view trainer profiles.</CardDescription>
+              <CardTitle>{t('trainerManagementTitle')}</CardTitle>
+              <CardDescription>{t('trainerManagementDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
-               <p className="text-muted-foreground text-center py-8">Trainer management tools will appear here.</p>
-               {/* Table or list for trainer management */}
+               <p className="text-muted-foreground text-center py-8">{t('trainerManagementPlaceholder')}</p>
             </CardContent>
           </Card>
        </div>
 
        <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>System Settings</CardTitle>
-               <CardDescription>Configure application-wide settings.</CardDescription>
+              <CardTitle>{t('systemSettingsTitle')}</CardTitle>
+               <CardDescription>{t('systemSettingsDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
-               <p className="text-muted-foreground text-center py-8">System configuration options will appear here.</p>
-               {/* Form elements for settings */}
+               <p className="text-muted-foreground text-center py-8">{t('systemSettingsPlaceholder')}</p>
             </CardContent>
           </Card>
-
     </div>
   );
 }
+
+    

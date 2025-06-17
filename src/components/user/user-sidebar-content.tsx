@@ -1,9 +1,8 @@
 
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload, Settings, Search } from 'lucide-react'; // Changed SearchUsers to Search
+import { Link, useRouter, usePathname } from '@/navigation';
+import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload, Settings, Search } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,40 +19,30 @@ import {
   SidebarMenuButton,
 } from '@/components/ui/sidebar'; 
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'; 
-
-const navItems = [
-  { href: '/user/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/user/measurements', label: 'Measurements', icon: Scale },
-  { href: '/user/workouts', label: 'Workouts', icon: Dumbbell },
-  { href: '/user/nutrition', label: 'Nutrition & Goals', icon: Apple },
-  { href: '/user/find-trainer', label: 'Find a Trainer', icon: Search }, // Changed SearchUsers to Search
-  { href: '/user/profile', label: 'My Profile', icon: User },
-];
+import { useTranslations } from 'next-intl';
 
 interface UserSidebarData {
   name: string;
   profilePictureUrl: string | null;
 }
 
-// async function fetchUserData(): Promise<UserSidebarData> {
-//   return {
-//     name: 'Alex Rider',
-//     profilePictureUrl: null,
-//   };
-// }
-
-// async function uploadProfilePicture(file: File): Promise<{ success: boolean, newUrl?: string }> {
-//   await new Promise(resolve => setTimeout(resolve, 1000));
-//   return { success: true, newUrl: URL.createObjectURL(file) };
-// }
-
 export default function UserSidebarContent() {
+  const t = useTranslations('UserSidebar');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userData, setUserData] = useState<UserSidebarData | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const navItems = [
+    { href: '/user/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/user/measurements', label: t('measurements'), icon: Scale },
+    { href: '/user/workouts', label: t('workouts'), icon: Dumbbell },
+    { href: '/user/nutrition', label: t('nutritionGoals'), icon: Apple },
+    { href: '/user/find-trainer', label: t('findTrainer'), icon: Search }, 
+    { href: '/user/profile', label: t('myProfile'), icon: User },
+  ];
 
   useEffect(() => {
     const load = async () => {
@@ -70,15 +59,15 @@ export default function UserSidebarContent() {
           return;
         }
         console.error('Failed to load sidebar user:', err);
-        toast({
-          title: 'Error',
-          description: 'Could not load user info.',
-          variant: 'destructive',
-        });
+        // toast({ // Toast is already handled by the page if user data fails
+        //   title: 'Error',
+        //   description: 'Could not load user info.',
+        //   variant: 'destructive',
+        // });
       }
     };
     load();
-  }, [router, toast]);
+  }, [router]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -93,26 +82,25 @@ export default function UserSidebarContent() {
         if (result.success && result.newUrl) {
           setUserData(prev => prev ? { ...prev, profilePictureUrl: result.newUrl } : null);
           toast({
-            title: "Profile Picture Updated",
-            description: "Your new profile picture has been set.",
+            title: t('toastProfilePicUpdatedTitle'),
+            description: t('toastProfilePicUpdatedDesc'),
           });
         } else {
            toast({
-            title: "Upload Failed",
-            description: "Could not upload your profile picture.",
+            title: t('toastUploadFailedTitle'),
+            description: t('toastUploadFailedDesc'),
             variant: "destructive",
           });
         }
       } catch (error) {
         console.error("Failed to upload profile picture:", error);
         toast({
-            title: "Error",
-            description: "An unexpected error occurred during upload.",
+            title: t('toastErrorTitle'),
+            description: t('toastErrorDesc'),
             variant: "destructive",
         });
       } finally {
         setIsUploading(false);
-         // Reset file input to allow re-uploading the same file if needed
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -121,16 +109,14 @@ export default function UserSidebarContent() {
   };
 
   const handleSignOut = () => {
-    console.log('Signing out...');
-    toast({ title: "Signed Out", description: "You have been successfully signed out." });
-    localStorage.clear(); // Clear local storage on sign out
+    toast({ title: t('toastSignedOutTitle'), description: t('toastSignedOutDesc') });
+    localStorage.clear(); 
     router.push('/signin');
   };
 
   return (
     <>
       <SidebarHeader className="p-4 group-data-[state=expanded]/sidebar:border-b">
-        {/* Expanded View */}
         <div className="flex flex-col items-center space-y-2 group-data-[state=collapsed]/sidebar:hidden">
           <Avatar
             className="h-24 w-24 cursor-pointer ring-2 ring-offset-2 ring-primary hover:ring-accent transition-all"
@@ -158,11 +144,10 @@ export default function UserSidebarContent() {
           />
           {userData?.name && <p className="text-sm font-medium">{userData.name}</p>}
           <Button variant="link" size="sm" onClick={handleAvatarClick} disabled={isUploading} className="text-xs p-0 h-auto text-primary">
-            {isUploading ? 'Uploading...' : 'Change Picture'}
+            {isUploading ? t('uploading') : t('changePicture')}
           </Button>
         </div>
 
-        {/* Collapsed View (Icon View) */}
         <div className="hidden flex-col items-center group-data-[state=expanded]/sidebar:hidden group-data-[state=collapsed]/sidebar:flex">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
@@ -185,8 +170,8 @@ export default function UserSidebarContent() {
                 </Avatar>
               </TooltipTrigger>
               <TooltipContent side="right" align="center">
-                <p>{userData?.name || 'User Profile'}</p>
-                <p className="text-xs text-muted-foreground">Click to change picture</p>
+                <p>{userData?.name || t('userProfileTooltip')}</p>
+                <p className="text-xs text-muted-foreground">{t('changePicture')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -205,7 +190,7 @@ export default function UserSidebarContent() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href as any} passHref legacyBehavior>
                 <SidebarMenuButton
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={cn(
@@ -227,9 +212,9 @@ export default function UserSidebarContent() {
       <SidebarFooter className="p-4 group-data-[state=expanded]/sidebar:border-t">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton variant="ghost" className="w-full justify-start" onClick={handleSignOut} tooltip={{children: "Sign Out", side:"right", align:"center"}}>
+            <SidebarMenuButton variant="ghost" className="w-full justify-start" onClick={handleSignOut} tooltip={{children: t('signOut'), side:"right", align:"center"}}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">Sign Out</span>
+              <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">{t('signOut')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -237,3 +222,5 @@ export default function UserSidebarContent() {
     </>
   );
 }
+
+    

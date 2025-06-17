@@ -1,3 +1,4 @@
+
 // src/app/signup/page.tsx
 "use client";
 
@@ -7,10 +8,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { Link, useRouter } from '@/navigation'; // Use from new navigation config
+import { useTranslations } from 'next-intl';
 
 export default function SignUpPage() {
+  const t = useTranslations('SignUpPage');
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,12 +25,12 @@ export default function SignUpPage() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('errorPasswordMismatch'));
       return;
     }
 
     if (!email || !password || !role) {
-      setError('Please fill in all fields and select a role.');
+      setError(t('errorMissingFields'));
       return;
     }
 
@@ -40,7 +42,7 @@ export default function SignUpPage() {
       });
       if (!regRes.ok) {
         const text = await regRes.text();
-        throw new Error(`Register failed: ${text}`);
+        throw new Error(t('errorRegisterFailed', { details: text }));
       }
       const user = await regRes.json();
       localStorage.setItem('userId', user.id);
@@ -53,7 +55,7 @@ export default function SignUpPage() {
       });
       if (!loginRes.ok) {
         const err = await loginRes.json();
-        throw new Error(`Login failed: ${err.detail}`);
+        throw new Error(t('errorLoginFailed', { details: err.detail }));
       }
       const { access, refresh } = await loginRes.json();
       localStorage.setItem('accessToken', access);
@@ -67,7 +69,7 @@ export default function SignUpPage() {
   
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Signup error');
+      setError(err.message || t('errorSignup'));
     }
   };
 
@@ -75,14 +77,14 @@ export default function SignUpPage() {
     <div className="flex justify-center items-center py-12">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create Your Vibrafit Account</CardTitle>
-          <CardDescription>Join us to start tracking your fitness journey!</CardDescription>
+          <CardTitle className="text-2xl">{t('title')}</CardTitle>
+          <CardDescription>{t('description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp} className="space-y-4">
             {/* Role Selection */}
              <div className="space-y-2">
-               <Label>Sign up as a:</Label>
+               <Label>{t('roleLabel')}</Label>
                 <RadioGroup
                     defaultValue="user"
                     value={role}
@@ -91,58 +93,58 @@ export default function SignUpPage() {
                  >
                     <div className="flex items-center space-x-2">
                     <RadioGroupItem value="client" id="role-user" />
-                    <Label htmlFor="role-user">User</Label>
+                    <Label htmlFor="role-user">{t('roleUser')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                     <RadioGroupItem value="trainer" id="role-trainer" />
-                    <Label htmlFor="role-trainer">Fitness Trainer</Label>
+                    <Label htmlFor="role-trainer">{t('roleTrainer')}</Label>
                     </div>
                 </RadioGroup>
              </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder={t('emailPlaceholder')}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
                 required
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password">{t('confirmPasswordLabel')}</Label>
               <Input
                 id="confirm-password"
                 type="password"
                 required
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
              {error && <p className="text-sm text-destructive text-center">{error}</p>}
-            <Button type="submit" className="w-full">Sign Up</Button>
+            <Button type="submit" className="w-full">{t('signUpButton')}</Button>
           </form>
         </CardContent>
         <CardFooter className="text-center text-sm">
           <p>
-            Already have an account?{' '}
+            {t('hasAccountPrompt')}{' '}
             <Link href="/signin" className="text-primary hover:underline">
-              Sign In
+              {t('signInLink')}
             </Link>
           </p>
         </CardFooter>
@@ -150,3 +152,5 @@ export default function SignUpPage() {
     </div>
   );
 }
+
+    
