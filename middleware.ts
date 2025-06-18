@@ -1,13 +1,9 @@
 
+// middleware.ts
 import createMiddleware from 'next-intl/middleware';
-import {locales, defaultLocale} from './src/i18n'; // Import from new central i18n config
+import { routing } from './src/navigation';
 
-export default createMiddleware({
-  locales,
-  defaultLocale,
-  localePrefix: 'always',
-  localeDetection: true,
-});
+export default createMiddleware(routing);
 
 export const config = {
   // Match all pathnames except for
@@ -15,3 +11,4 @@ export const config = {
   // - … the ones containing a dot (e.g. `favicon.ico`)
   matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
 };
+
