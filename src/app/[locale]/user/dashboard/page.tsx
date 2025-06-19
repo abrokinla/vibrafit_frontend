@@ -1,6 +1,7 @@
 // src/app/[locale]/user/dashboard/page.tsx
 'use client';
-export const runtime = 'edge';
+xport const runtime = 'nodejs';
+
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image'; 
