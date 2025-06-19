@@ -14,7 +14,7 @@ import {z} from 'genkit';
 
 const DailyMotivationInputSchema = z.object({
   userId: z.string().describe('The ID of the user.'),
-  goal: z.string().describe('The user\u0027s fitness goal. Can be empty if not set yet.'), // Updated description
+  goal: z.string().describe('The user\u0027s fitness goal. Can be empty if not set yet.'),
   progress: z.string().describe('The user\u0027s current progress towards their goal.'),
 });
 export type DailyMotivationInput = z.infer<typeof DailyMotivationInputSchema>;

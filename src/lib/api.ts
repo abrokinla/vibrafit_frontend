@@ -1,3 +1,11 @@
+export interface GoalPayload {
+  user: number;
+  description: string;
+  target_value: string;
+  target_date: string;
+  status: 'pending' | 'active' | 'completed';
+}
+
 export interface UserData {
   id: number;
   email: string;
@@ -15,7 +23,7 @@ export interface UserData {
   currentPhotoUrl: string | null;
   trainerId: number | null;
   date_of_birth: string | null;
-  goal: string | null;
+  goal: GoalPayload | null;
 }
 
 export interface TrainerProfileData {
@@ -73,14 +81,6 @@ export interface NutritionPlan {
   plan: number;
   notes?: string;
   meals: Meal[];
-}
-
-export interface GoalPayload {
-  user: number;
-  description: string;
-  target_value: string;
-  target_date: string;
-  status: 'pending' | 'active' | 'completed';
 }
 
 export interface GoalResponse {

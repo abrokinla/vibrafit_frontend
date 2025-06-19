@@ -1,6 +1,6 @@
 // src/app/[locale]/user/dashboard/page.tsx
 'use client';
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 
 import { Suspense, useState, useEffect, useRef } from 'react';
@@ -74,13 +74,7 @@ export default function UserDashboardPage() {
                  }
             }
         }
-        // Simulate fetching recent activities
-        // Replace with actual API calls
-        setRecentActivities([
-          { id: 1, type: 'workout', description: 'Completed Full Body Blast routine', date: new Date(Date.now() - 86400000) },
-          { id: 3, type: 'meal', description: 'Logged breakfast: Oats & Berries', date: new Date(Date.now() - 3600000) },
-        ]);
-
+      
       } catch (err: any) {      
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
           localStorage.clear();
@@ -174,7 +168,7 @@ export default function UserDashboardPage() {
         </div>
      );
    }
-
+   
   return (
     <div className="space-y-8">
         <OnboardingModal

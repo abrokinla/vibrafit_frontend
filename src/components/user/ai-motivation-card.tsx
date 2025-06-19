@@ -2,8 +2,8 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
-import { getDailyMotivation, type DailyMotivationInput } from "@/ai/flows/daily-motivator";
-import { Link } from '@/navigation'; // Use from new navigation config
+import type { DailyMotivationInput } from "@/ai/flows/daily-motivator";
+import { Link } from '@/navigation';
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
@@ -22,17 +22,26 @@ export default function AiMotivationCard({ userId, goal, progress }: AiMotivatio
     async function fetchMotivation() {
       setIsLoading(true);
       try {
-        const motivation = await getDailyMotivation({ userId, goal, progress });
-        setMotivationData(motivation);
+        const res = await fetch("/api/motivation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, goal, progress }),
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch motivation");
+
+        const data = await res.json();
+        setMotivationData(data);
       } catch (error) {
         console.error("Failed to fetch motivation:", error);
-        // Set a fallback message or handle error appropriately
         setMotivationData({ message: "Could not load motivation at this time." });
       }
       setIsLoading(false);
     }
+
     fetchMotivation();
   }, [userId, goal, progress]);
+
 
   if (isLoading || !motivationData) {
     return (
