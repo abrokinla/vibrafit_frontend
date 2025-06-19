@@ -1,5 +1,7 @@
 // src/app/[locale]/admin/dashboard/page.tsx
 'use client';
+export const runtime = 'edge';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserCheck, BarChart, Settings } from "lucide-react";
 import { useTranslations } from 'next-intl';

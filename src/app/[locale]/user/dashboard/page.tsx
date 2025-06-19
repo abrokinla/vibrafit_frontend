@@ -1,5 +1,6 @@
 // src/app/[locale]/user/dashboard/page.tsx
 'use client';
+export const runtime = 'edge';
 
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image'; 

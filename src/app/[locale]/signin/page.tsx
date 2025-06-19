@@ -1,5 +1,6 @@
 // src/app/[locale]/signin/page.tsx
 "use client";
+export const runtime = 'edge';
 
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";

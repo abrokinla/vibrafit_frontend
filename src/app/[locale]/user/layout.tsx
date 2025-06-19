@@ -1,4 +1,6 @@
 // src/app/[locale]/user/layout.tsx
+export const runtime = 'edge';
+
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import UserSidebarContent from '@/components/user/user-sidebar-content';

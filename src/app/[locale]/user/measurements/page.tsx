@@ -1,5 +1,6 @@
 // src/app/[locale]/user/measurements/page.tsx
 'use client';
+export const runtime = 'edge';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";

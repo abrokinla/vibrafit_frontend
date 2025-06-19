@@ -1,4 +1,6 @@
 // src/app/[locale]/trainer/layout.tsx
+export const runtime = 'edge';
+
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import TrainerSidebarContent from '@/components/trainer/trainer-sidebar-content';

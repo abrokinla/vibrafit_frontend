@@ -1,5 +1,7 @@
 // src/app/[locale]/trainer/dashboard/page.tsx
 'use client';
+export const runtime = 'edge';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Activity, MessageSquare, ClipboardList } from "lucide-react";
 import { Link, useRouter } from '@/navigation';
