@@ -1,5 +1,6 @@
 // src/app/[locale]/user/find-trainer/[trainerId]/page.tsx
 'use client';
+export const runtime = 'edge';  
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation'; // Keep this for client component param access
@@ -19,10 +20,6 @@ async function fetchTrainerById(trainerUserId: string, token: string | null): Pr
   if (!trainerUserId || !token) return null;
 
   try {
-    // This endpoint needs to fetch the combined user data and trainer-specific profile data
-    // Assuming /api/users/{id}/ can give basic user info (name, email, profilePic)
-    // And /api/trainer-profile/by-user/{user_id}/ gives specializations, bio etc.
-    
     const userRes = await fetch(`https://vibrafit.onrender.com/api/users/${trainerUserId}/`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
