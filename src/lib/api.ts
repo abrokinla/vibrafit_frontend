@@ -15,6 +15,7 @@ export interface UserData {
   currentPhotoUrl: string | null;
   trainerId: number | null;
   date_of_birth: string | null;
+  goal: string | null;
 }
 
 export interface TrainerProfileData {
@@ -64,6 +65,7 @@ export interface Meal {
   meal_type: 'breakfast' | 'lunch' | 'dinner';
   time: string;
   description: string;
+  calories: string;
 }
 
 export interface NutritionPlan {
@@ -71,6 +73,84 @@ export interface NutritionPlan {
   plan: number;
   notes?: string;
   meals: Meal[];
+}
+
+export interface GoalPayload {
+  user: number;
+  description: string;
+  target_value: string;
+  target_date: string;
+  status: 'pending' | 'active' | 'completed';
+}
+
+export interface GoalResponse {
+  success: boolean;
+  goal?: GoalPayload & { id: number; created_at: string };
+}
+
+export interface TrainerMeal {
+  id: number;
+  meal_type: 'breakfast' | 'lunch' | 'dinner';
+  time: string;
+  description: string;
+  calories?: number;
+}
+
+export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const res = await fetch(`https://vibrafit.onrender.com/api/nutrition-plan/?date=${today}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Failed to fetch trainer meals');
+  }
+
+  const data = await res.json();
+
+  return data.meals || [];
+}
+
+export interface LoggedMeal {
+  id: number;
+  description: string;
+  calories?: number;
+  date: string;
+  time?: string;
+}
+
+export async function fetchLoggedMeals(token: string): Promise<LoggedMeal[]> {
+  const res = await fetch(`${API_URL}/logged-meals/`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to fetch logged meals");
+  return res.json();
+}
+
+export async function createLoggedMeal(token: string, meal: Partial<LoggedMeal>) {
+  const res = await fetch(`${API_URL}/logged-meals/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(meal)
+  });
+  if (!res.ok) throw new Error("Failed to log meal");
+  return res.json();
+}
+
+export async function deleteLoggedMeal(token: string, id: number) {
+  const res = await fetch(`${API_URL}/logged-meals/${id}/`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!res.ok) throw new Error("Failed to delete meal");
 }
 
 export type CombinedProfileData = UserData & TrainerProfileData;

@@ -7,45 +7,96 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Apple, CalendarDays, PlusCircle, Trash2, Utensils, Target, Save, Loader2 } from "lucide-react";
+import { Apple, CalendarDays, PlusCircle, Trash2, Utensils, Target, Save, Loader2, User, Upload, UploadCloud  } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import Image from 'next/image'; 
 import { useTranslations } from 'next-intl';
-import { getUserData, saveUserProfile, UserData } from '@/lib/api'; // Import API
-import { uploadProgressPhoto } from '@/lib/utils'; // For image uploads
+import { 
+          getUserData, 
+          saveUserProfile, 
+          UserData, 
+          GoalPayload, 
+          GoalResponse, 
+          TrainerMeal, 
+          fetchTodaysTrainerMeals,
+          LoggedMeal,
+          fetchLoggedMeals 
+        } from '@/lib/api';
+import { uploadProgressPhoto } from '@/lib/utils';
 
-interface MealLog {
-  id: string; // Or number, depending on your backend
-  date: Date;
+const BASE_URL = "https://vibrafit.onrender.com/api";
+
+export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
+  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    throw new Error("Failed to fetch meals");
+  }
+
+  return res.json();
+}
+
+export interface LoggedMeal {
+  id: number;
   description: string;
   calories?: number;
+  date: string; // e.g., "2025-06-18"
+  time: string; // e.g., "14:30"
 }
 
-// Simulate fetching/saving meal data (replace with actual API calls)
-async function fetchMealsFromApi(token: string): Promise<MealLog[]> {
-  // This should fetch meal logs for the user.
-  // For now, returning sample data.
-  await new Promise(resolve => setTimeout(resolve, 650));
-  return [
-    { id: 'm1', date: new Date(Date.now() - 3600000), description: 'Lunch: Grilled chicken salad with vinaigrette.', calories: 450 },
-    { id: 'm2', date: new Date(Date.now() - 18000000), description: 'Breakfast: Greek yogurt with granola and honey.', calories: 300 },
-  ];
-}
+export async function addMealToApi(
+  token: string,
+  description: string,
+  calories: number | undefined,
+  date: string,  // Format: "YYYY-MM-DD"
+  time: string   // Format: "HH:MM"
+): Promise<{ success: boolean; newMeal?: LoggedMeal }> {
+  const body = {
+    description,
+    calories,
+    date,
+    time,
+  };
 
-async function addMealToApi(token: string, description: string, calories?: number): Promise<{ success: boolean; newMeal?: MealLog }> {
-  // This should save a new meal log.
-  // For now, simulating.
-  await new Promise(resolve => setTimeout(resolve, 750));
-  const newMeal: MealLog = { id: `m${Date.now()}`, date: new Date(), description: description, calories };
-  console.log("Saving meal to API:", { description, calories });
+  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    return { success: false };
+  }
+
+  const newMeal: LoggedMeal = await res.json();
   return { success: true, newMeal };
 }
 
-async function deleteMealFromApi(token: string, mealId: string): Promise<{ success: boolean }> {
-    await new Promise(resolve => setTimeout(resolve, 550));
-    console.log("Deleting meal from API:", mealId);
-    return { success: true };
+
+export async function deleteMealFromApi(token: string, id: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${BASE_URL}/logged-meals/${id}/`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    return { success: false };
+  }
+
+  return { success: true };
 }
 
 
@@ -54,13 +105,16 @@ export default function NutritionPage() {
   const { toast } = useToast();
   const [newMealDescription, setNewMealDescription] = useState('');
   const [newMealCalories, setNewMealCalories] = useState<string>('');
-  const [mealHistory, setMealHistory] = useState<MealLog[]>([]);
+  const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
   const [isLoadingMeals, setIsLoadingMeals] = useState(true);
   const [isSavingMeal, setIsSavingMeal] = useState(false);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
 
   const [user, setUser] = useState<UserData | null>(null);
+  const [trainerMeals, setTrainerMeals] = useState<TrainerMeal[]>([]);
   const [goal, setGoal] = useState('');
+  const [targetValue, setTargetValue] = useState('');
+  const [targetDate, setTargetDate] = useState('');
   const [beforePhotoPreview, setBeforePhotoPreview] = useState<string | null>(null);
   const [currentPhotoPreview, setCurrentPhotoPreview] = useState<string | null>(null);
   const [isUploadingBefore, setIsUploadingBefore] = useState(false);
@@ -71,37 +125,54 @@ export default function NutritionPage() {
   const beforeFileInputRef = useRef<HTMLInputElement>(null);
   const currentFileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+ useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
-        // Handle no token case, e.g., redirect to login
-        setIsLoadingMeals(false);
-        setIsLoadingProfile(false);
-        return;
+      // Handle no token case, e.g., redirect to login
+      setIsLoadingMeals(false);
+      setIsLoadingProfile(false);
+      return;
     }
 
     setIsLoadingMeals(true);
-    fetchMealsFromApi(token).then(data => {
-      setMealHistory(data);
-      setIsLoadingMeals(false);
-    }).catch(err => {
+    fetchMealsFromApi(token)
+      .then(data => {
+        setMealHistory(data);
+        setIsLoadingMeals(false);
+      })
+      .catch(err => {
         console.error("Error fetching meals:", err);
         toast({ title: t('toastErrorTitle'), description: t('toastErrorFetchMeals'), variant: "destructive" });
         setIsLoadingMeals(false);
-    });
+      });
 
     setIsLoadingProfile(true);
-    getUserData().then(data => {
+    getUserData()
+      .then(data => {
         setUser(data);
         setGoal(data.goal || '');
         setBeforePhotoPreview(data.beforePhotoUrl || null);
         setCurrentPhotoPreview(data.currentPhotoUrl || null);
         setIsLoadingProfile(false);
-    }).catch(err => {
+      })
+      .catch(err => {
         console.error("Error fetching user profile data:", err);
         toast({ title: t('toastErrorTitle'), description: t('toastErrorFetchProfile'), variant: "destructive" });
         setIsLoadingProfile(false);
-    });
+      });
+
+    fetchTodaysTrainerMeals(token)
+      .then((meals) => {
+        setTrainerMeals(meals);
+      })
+      .catch((err) => {
+        console.error("Error fetching trainer meals:", err);
+        toast({
+          title: t('toastErrorTitle'),
+          description: t('toastErrorFetchingTrainerMeals'),
+          variant: 'destructive',
+        });
+      });
 
   }, [toast, t]);
 
@@ -129,7 +200,7 @@ export default function NutritionPage() {
         setMealHistory(prev => [result.newMeal!, ...prev]);
         setNewMealDescription('');
         setNewMealCalories('');
-        toast({ title: t('toastMealLoggedTitle'), description: t('toastMealLoggedDesc') });
+        toast({ title: t('toastLoggedMealgedTitle'), description: t('toastLoggedMealgedDesc') });
       } else {
         toast({ title: t('toastLogFailedTitle'), description: t('toastLogFailedDesc'), variant: "destructive" });
       }
@@ -162,30 +233,70 @@ export default function NutritionPage() {
     }
   };
   
-  const handleSaveGoalAndPhotos = async () => {
+
+  const handleSaveGoal = async () => {
     if (!user) return;
-    if (!goal.trim()) {
-        toast({ title: t('toastGoalRequiredTitle'), description: t('toastGoalRequiredDesc'), variant: "destructive"});
-        return;
+
+    if (!goal.trim() || !targetValue.trim() || !targetDate) {
+      toast({
+        title: t('toastGoalRequiredTitle'),
+        description: t('toastGoalRequiredDesc'),
+        variant: "destructive"
+      });
+      return;
     }
+
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      toast({
+        title: t('toastAuthError'),
+        description: t('toastAuthErrorDesc'),
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSavingGoal(true);
+
     try {
-        const payload: Partial<UserData> = { goal };
-        // Note: Photo URLs are updated separately via uploadProgressPhoto, then PATCHed to UserData
-        // Here we only save the goal text.
-        const result = await saveUserProfile(payload);
-        if(result.success) {
-            setUser(prev => prev ? {...prev, goal } : null);
-            toast({ title: t('toastGoalSavedTitle'), description: t('toastGoalSavedDesc') });
-        } else {
-            toast({ title: t('toastSaveFailedTitle'), description: t('toastSaveFailedDesc'), variant: "destructive" });
-        }
+      const token = localStorage.getItem("accessToken");
+      if (!token) throw new Error("No token found");
+
+      const payload: GoalPayload = {
+        user: Number(userId),
+        description: goal,
+        target_value: targetValue,
+        target_date: targetDate,
+        status: "pending"
+      };
+
+      const res = await fetch("https://vibrafit.onrender.com/api/goals/", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("Goal save failed:", errorData);
+        throw new Error(errorData.detail || "Failed to save goal");
+      }
+
+      toast({ title: t('toastGoalSavedTitle'), description: t('toastGoalSavedDesc') });
     } catch (error: any) {
-         toast({ title: t('toastErrorTitle'), description: error.message || t('toastErrorDesc'), variant: "destructive"});
+      toast({
+        title: t('toastErrorTitle'),
+        description: error.message || t('toastErrorDesc'),
+        variant: "destructive"
+      });
     } finally {
-        setIsSavingGoal(false);
+      setIsSavingGoal(false);
     }
   };
+
 
  const handlePhotoUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -248,76 +359,135 @@ export default function NutritionPage() {
           <CardDescription>{t('myFitnessGoalDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+            {/* Goal Description */}
             <div>
-                <Label htmlFor="fitness-goal" className="text-base font-medium">{t('yourFitnessGoalLabel')}</Label>
-                <Textarea
-                  id="fitness-goal"
-                  placeholder={t('fitnessGoalPlaceholder')}
-                  rows={3}
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
-                  disabled={isSavingGoal}
-                  className="mt-1"
-                />
+              <Label htmlFor="fitness-goal" className="text-base font-medium">
+                {t('yourFitnessGoalLabel')}
+              </Label>
+              <Textarea
+                id="fitness-goal"
+                placeholder={t('fitnessGoalPlaceholder')}
+                rows={3}
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                disabled={isSavingGoal}
+                className="mt-1"
+              />
             </div>
+
+            {/* Target Value */}
+            <div>
+              <Label htmlFor="target-value" className="text-base font-medium">
+                {t('targetValueLabel')}
+              </Label>
+              <Input
+                id="target-value"
+                placeholder={t('targetValuePlaceholder')}
+                value={targetValue}
+                onChange={(e) => setTargetValue(e.target.value)}
+                disabled={isSavingGoal}
+              />
+            </div>
+
+            {/* Target Date */}
+            <div>
+              <Label htmlFor="target-date" className="text-base font-medium">
+                {t('targetDateLabel')}
+              </Label>
+              <Input
+                id="target-date"
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                disabled={isSavingGoal}
+              />
+            </div>
+
             <div className="grid md:grid-cols-2 gap-6">
-                {/* Before Photo */}
-                <div className="space-y-3">
-                    <Label htmlFor="before-photo-input" className="text-lg font-semibold">{t('beforeLabel')}</Label>
-                    <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                        <Image
-                            src={beforePhotoPreview || user?.beforePhotoUrl || "https://placehold.co/400x400.png"}
-                            alt={t('beforePhotoAlt')}
-                            fill style={{objectFit:"cover"}}
-                            className={isUploadingBefore ? 'opacity-50' : ''} data-ai-hint="fitness before" unoptimized/>
-                        {isUploadingBefore && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
-                    </div>
-                    <input type="file" id="before-photo-input" ref={beforeFileInputRef} accept="image/*" 
-                           onChange={(e) => handlePhotoUpload(e, 'before')} className="hidden" disabled={isUploadingBefore} />
-                    <Button onClick={() => beforeFileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploadingBefore}>
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        {isUploadingBefore ? t('uploadingButton') : (beforePhotoPreview ? t('changeBeforeButton') : t('uploadBeforeButton'))}
-                    </Button>
-                </div>
-                {/* Current Photo */}
-                <div className="space-y-3">
-                    <Label htmlFor="current-photo-input" className="text-lg font-semibold">{t('currentLabel')}</Label>
-                     <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                        <Image
-                            src={currentPhotoPreview || user?.currentPhotoUrl || "https://placehold.co/400x400.png"}
-                            alt={t('currentPhotoAlt')}
-                            fill style={{objectFit:"cover"}}
-                            className={isUploadingCurrent ? 'opacity-50' : ''} data-ai-hint="fitness current" unoptimized/>
-                        {isUploadingCurrent && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
-                    </div>
-                    <input type="file" id="current-photo-input" ref={currentFileInputRef} accept="image/*"
-                           onChange={(e) => handlePhotoUpload(e, 'current')} className="hidden" disabled={isUploadingCurrent} />
-                    <Button onClick={() => currentFileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploadingCurrent}>
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                         {isUploadingCurrent ? t('uploadingButton') : (currentPhotoPreview ? t('updateCurrentButton') : t('uploadCurrentButton'))}
-                    </Button>
-                </div>
-            </div>
+              {/* Before Photo */}
+              <div className="space-y-3">
+                  <Label htmlFor="before-photo-input" className="text-lg font-semibold">{t('beforeLabel')}</Label>
+                  <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+                      <Image
+                          src={beforePhotoPreview || user?.beforePhotoUrl || "https://placehold.co/400x400.png"}
+                          alt={t('beforePhotoAlt')}
+                          fill style={{objectFit:"cover"}}
+                          className={isUploadingBefore ? 'opacity-50' : ''} data-ai-hint="fitness before" unoptimized/>
+                      {isUploadingBefore && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
+                  </div>
+                  <input type="file" id="before-photo-input" ref={beforeFileInputRef} accept="image/*" 
+                          onChange={(e) => handlePhotoUpload(e, 'before')} className="hidden" disabled={isUploadingBefore} />
+                  <Button onClick={() => beforeFileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploadingBefore}>
+                      <UploadCloud className="mr-2 h-4 w-4" />
+                      {isUploadingBefore ? t('uploadingButton') : (beforePhotoPreview ? t('changeBeforeButton') : t('uploadBeforeButton'))}
+                  </Button>
+              </div>
+              {/* Current Photo */}
+              <div className="space-y-3">
+                <Label htmlFor="current-photo-input" className="text-lg font-semibold">{t('currentLabel')}</Label>
+                  <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+                    <Image
+                        src={currentPhotoPreview || user?.currentPhotoUrl || "https://placehold.co/400x400.png"}
+                        alt={t('currentPhotoAlt')}
+                        fill style={{objectFit:"cover"}}
+                        className={isUploadingCurrent ? 'opacity-50' : ''} data-ai-hint="fitness current" unoptimized/>
+                    {isUploadingCurrent && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
+                  </div>
+                  <input type="file" id="current-photo-input" ref={currentFileInputRef} accept="image/*"
+                          onChange={(e) => handlePhotoUpload(e, 'current')} className="hidden" disabled={isUploadingCurrent} />
+                  <Button onClick={() => currentFileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploadingCurrent}>
+                      <UploadCloud className="mr-2 h-4 w-4" />
+                        {isUploadingCurrent ? t('uploadingButton') : (currentPhotoPreview ? t('updateCurrentButton') : t('uploadCurrentButton'))}
+                  </Button>
+              </div>
+          </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleSaveGoalAndPhotos} disabled={isSavingGoal || isLoadingProfile || !goal.trim()}>
+          <Button onClick={handleSaveGoal} disabled={isSavingGoal || isLoadingProfile || !goal.trim()}>
             <Save className="mr-2 h-4 w-4" />
             {isSavingGoal ? t('savingGoalButton') : t('saveGoalButton')}
           </Button>
         </CardFooter>
       </Card>
 
-       <Card className="shadow-sm bg-secondary">
-           <CardHeader>
-             <CardTitle className="text-lg flex items-center gap-2">
-                <Utensils className="h-5 w-5 text-primary"/> {t('todaysMealSummaryTitle')}
-             </CardTitle>
-           </CardHeader>
-           <CardContent>
-              <p className="text-2xl font-bold">{todayCalories} {t('caloriesUnit')}</p>
-              <p className="text-xs text-muted-foreground">{t('caloriesEstimation')}</p>
-           </CardContent>
-       </Card>
+      {/* Show meals set by trainer */}
+      {trainerMeals.length > 0 && (
+        <Card className="shadow-sm bg-secondary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-700">
+              <Salad className="h-5 w-5" />
+              {t('trainerMealPlanTitle')}
+            </CardTitle>
+            <CardDescription>{t('trainerMealPlanDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {trainerMeals.map((meal, index) => (
+              <div key={index} className="border p-3 rounded-md">
+                <div className="flex justify-between items-center">
+                  <p className="font-semibold capitalize">{t(`mealType.${meal.meal_type}`)}</p>
+                  <p className="text-sm text-muted-foreground">{meal.time}</p>
+                </div>
+                <p>{meal.description}</p>
+                {meal.calories && (
+                  <p className="text-sm text-muted-foreground">{t('caloriesLabel')}: {meal.calories}</p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="shadow-sm bg-secondary">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Utensils className="h-5 w-5 text-primary"/> {t('todaysMealSummaryTitle')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{todayCalories} {t('caloriesUnit')}</p>
+            <p className="text-xs text-muted-foreground">{t('caloriesEstimation')}</p>
+          </CardContent>
+      </Card>
 
       <Card className="shadow-sm">
         <CardHeader>
@@ -328,7 +498,7 @@ export default function NutritionPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder={t('mealLogPlaceholder')}
+            placeholder={t('LoggedMealPlaceholder')}
             rows={3}
             value={newMealDescription}
             onChange={(e) => setNewMealDescription(e.target.value)}

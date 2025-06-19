@@ -184,7 +184,11 @@ export default function UserDashboardPage() {
       <h1 className="text-3xl font-bold">{t('welcomeBack', { name: user.name || "User" })}</h1>
 
       <Suspense fallback={<Card><CardHeader><CardTitle>{t('loadingMotivation')}</CardTitle></CardHeader><CardContent><div className="h-20 bg-muted rounded animate-pulse"></div></CardContent></Card>}>
-        <AiMotivationCard userId={user.id.toString()} goal={user.goal || ''} progress={""} />
+        <AiMotivationCard
+          userId={user.id.toString()}
+          goal={user.goal?.description || ''}
+          progress=""
+        />
       </Suspense>
 
       <Card className="shadow-md bg-gradient-to-r from-teal-500 to-primary hover:shadow-lg transition-shadow">

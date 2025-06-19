@@ -1,3 +1,4 @@
-
-// This file is no longer needed as its constants have been merged into src/i18n.ts
-// You can safely delete this file.
+// src/i18n-config.ts
+export const locales = ['en', 'es'] as const;
+export const defaultLocale = 'es' as const;
+export type Locale = typeof locales[number];

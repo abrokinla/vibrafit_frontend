@@ -2,8 +2,8 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useRouter, usePathname } from '@/navigation'; // Use from new navigation config
-import { locales as appLocalesConfig } from '../../i18n'; // Get locales from our i18n config
+import { useRouter, usePathname } from '@/navigation';
+import { locales as appLocalesConfig } from '../i18n-config';
 import {
   Select,
   SelectContent,

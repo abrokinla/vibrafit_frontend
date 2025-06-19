@@ -1,14 +1,14 @@
+// middleware.ts (next-intl v4+ compatible)
+import { createI18nMiddleware } from 'next-intl/middleware';
+import { locales, defaultLocale } from './src/i18n';
 
-// middleware.ts
-import createMiddleware from 'next-intl/middleware';
-import { routing } from './src/navigation';
-
-export default createMiddleware(routing);
+export default createI18nMiddleware({
+  locales,
+  defaultLocale,
+  localePrefix: 'always' // You’re already using this pattern
+});
 
 export const config = {
-  // Match all pathnames except for
-  // - … if they start with `/api`, `/_next` or `/_vercel`
-  // - … the ones containing a dot (e.g. `favicon.ico`)
+  // Match all pathnames except static files and API routes
   matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
 };
-

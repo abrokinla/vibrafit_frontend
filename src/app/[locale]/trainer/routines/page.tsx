@@ -251,10 +251,10 @@ export default function TrainerRoutinesPage() {
       return;
     }
 
-    const payload: Omit<NutritionPlan, 'id'> = { // Omit id as it's auto-generated
+    const payload: Omit<NutritionPlan, 'id'> = {
       plan: planIdForNutrition,
-      notes: "", // Add a notes field if your API supports it
-      meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal), // Exclude client-side id and nutrition_plan
+      notes: "",
+      meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal), 
     };
 
     try {
@@ -374,7 +374,7 @@ export default function TrainerRoutinesPage() {
       <Card className="shadow-lg">
         <CardHeader><CardTitle className="flex items-center gap-2 text-green-600"><Salad className="h-6 w-6" />{t('newNutritionPlanTitle')}</CardTitle><CardDescription>{t('newNutritionPlanDescription')}</CardDescription></CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6"> {/* Re-add client selection for nutrition plan */}
+          <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="client-select-nutrition">{t('selectClientLabel')}</Label>
                 <Select value={selectedClient !== null ? String(selectedClient) : undefined} onValueChange={(val) => setSelectedClient(Number(val))} disabled={isSaving}>
@@ -386,34 +386,102 @@ export default function TrainerRoutinesPage() {
           </div>
           <div className="space-y-4 pt-4 border-t">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold flex items-center gap-2"><Salad className="h-5 w-5" />{t('mealsTitle')}</h3>
-              <Button variant="outline" size="sm" onClick={handleAddMeal} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" />{t('addMealButton')}</Button></div>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Salad className="h-5 w-5" />
+                {t('mealsTitle')}
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddMeal}
+                disabled={isSaving}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {t('addMealButton')}
+              </Button>
+            </div>
+
             {nutritionItems.map((item, index) => (
               <Card key={index} className="p-4 bg-secondary/30 relative shadow-sm border">
-                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveMeal(index)} disabled={isSaving || nutritionItems.length === 1} aria-label={t('removeMealLabel')}><Trash2 className="h-4 w-4" /></Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleRemoveMeal(index)}
+                  disabled={isSaving || nutritionItems.length === 1}
+                  aria-label={t('removeMealLabel')}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+
                 <div className="grid md:grid-cols-2 gap-4 items-end">
+                  {/* Meal Type */}
                   <div className="space-y-1">
                     <Label htmlFor={`meal-type-${index}`}>{t('mealTypeLabel')}</Label>
-                    <Select value={item.meal_type} onValueChange={(val: 'breakfast' | 'lunch' | 'dinner') => handleChangeMeal(index, "meal_type", val)} disabled={isSaving}>
-                        <SelectTrigger id={`meal-type-${index}`}><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="breakfast">{t('mealTypeBreakfast')}</SelectItem>
-                            <SelectItem value="lunch">{t('mealTypeLunch')}</SelectItem>
-                            <SelectItem value="dinner">{t('mealTypeDinner')}</SelectItem>
-                        </SelectContent>
+                    <Select
+                      value={item.meal_type}
+                      onValueChange={(val: 'breakfast' | 'lunch' | 'dinner') =>
+                        handleChangeMeal(index, 'meal_type', val)
+                      }
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger id={`meal-type-${index}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="breakfast">{t('mealTypeBreakfast')}</SelectItem>
+                        <SelectItem value="lunch">{t('mealTypeLunch')}</SelectItem>
+                        <SelectItem value="dinner">{t('mealTypeDinner')}</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Meal Time */}
                   <div className="space-y-1">
                     <Label htmlFor={`meal-time-${index}`}>{t('mealTimeLabel')}</Label>
-                    <Input id={`meal-time-${index}`} type="time" value={item.time} onChange={(e) => handleChangeMeal(index, "time", e.target.value)} disabled={isSaving} required />
+                    <Input
+                      id={`meal-time-${index}`}
+                      type="time"
+                      value={item.time}
+                      onChange={(e) => handleChangeMeal(index, 'time', e.target.value)}
+                      disabled={isSaving}
+                      required
+                    />
                   </div>
                 </div>
-                 <div className="mt-3 space-y-1">
-                    <Label htmlFor={`meal-desc-${index}`}>{t('mealDetailsLabel')}</Label>
-                    <Textarea id={`meal-desc-${index}`} placeholder={t('mealDetailsPlaceholder')} rows={2} value={item.description} onChange={(e) => handleChangeMeal(index, "description", e.target.value)} disabled={isSaving} required />
-                 </div>
-              </Card>))}
-            </div>
+
+                {/* Meal Description */}
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor={`meal-desc-${index}`}>{t('mealDetailsLabel')}</Label>
+                  <Textarea
+                    id={`meal-desc-${index}`}
+                    placeholder={t('mealDetailsPlaceholder')}
+                    rows={2}
+                    value={item.description}
+                    onChange={(e) => handleChangeMeal(index, 'description', e.target.value)}
+                    disabled={isSaving}
+                    required
+                  />
+                </div>
+
+                {/* Estimated Calories */}
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor={`meal-calories-${index}`}>{t('mealCaloriesLabel')}</Label>
+                  <Input
+                    id={`meal-calories-${index}`}
+                    type="number"
+                    placeholder={t('mealCaloriesPlaceholder')}
+                    value={item.calories || ''}
+                    onChange={(e) =>
+                      handleChangeMeal(index, 'calories', parseInt(e.target.value) || 0)
+                    }
+                    disabled={isSaving}
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+
         </CardContent>
         <CardFooter><Button onClick={handleSaveNutritionPlan} disabled={isSaving} className="w-full md:w-auto"><Save className="mr-2 h-4 w-4" />{isSaving ? t('savingNutritionPlanButton') : t('saveNutritionPlanButton')}</Button></CardFooter>
       </Card>
