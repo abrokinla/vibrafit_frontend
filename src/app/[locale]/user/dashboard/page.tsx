@@ -1,6 +1,6 @@
 // src/app/[locale]/user/dashboard/page.tsx
 'use client';
-xport const runtime = 'nodejs';
+export const runtime = 'nodejs';
 
 
 import { Suspense, useState, useEffect, useRef } from 'react';
