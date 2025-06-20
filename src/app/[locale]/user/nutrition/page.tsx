@@ -43,20 +43,12 @@ export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
   return res.json();
 }
 
-export interface LoggedMeal {
-  id: number;
-  description: string;
-  calories?: number;
-  date: string; // e.g., "2025-06-18"
-  time: string; // e.g., "14:30"
-}
-
 export async function addMealToApi(
   token: string,
   description: string,
   calories: number | undefined,
-  date: string,  // Format: "YYYY-MM-DD"
-  time: string   // Format: "HH:MM"
+  date: string,
+  time: string 
 ): Promise<{ success: boolean; newMeal?: LoggedMeal }> {
   const body = {
     description,
@@ -233,7 +225,10 @@ export default function NutritionPage() {
       setDeletingMealId(null);
     }
   };
-  
+  // TODO: Update mesurements page so that any new measurement added
+  // Like weight or other metrics for goals achieved is added to a new 
+  // column in goals table "Progress". This should further be added to 
+  // AI prompt to generate motivational message
 
   const handleSaveGoal = async () => {
     if (!user) return;
