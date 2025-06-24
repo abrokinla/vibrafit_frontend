@@ -91,7 +91,6 @@ export async function deleteMealFromApi(token: string, id: number): Promise<{ su
   return { success: true };
 }
 
-
 export default function NutritionPage() {
   const t = useTranslations('NutritionPage');
   const { toast } = useToast();
@@ -357,7 +356,6 @@ export default function NutritionPage() {
       if (event.target) event.target.value = ""; 
     }
   };
-
 
   const todayCalories = mealHistory
     .filter(meal => format(meal.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
