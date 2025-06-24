@@ -3,10 +3,6 @@ import createNextIntlPlugin from 'next-intl/plugin';
 import type {NextConfig} from 'next';
 
 export const nextConfig: NextConfig = {  
-  i18n: {
-    locales: ['en', 'es'],
-    defaultLocale: 'es'
-  },  
   typescript: {
     ignoreBuildErrors: true,
   },
