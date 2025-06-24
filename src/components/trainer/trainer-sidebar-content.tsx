@@ -182,7 +182,7 @@ export default function TrainerSidebarContent() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href as any} passHref legacyBehavior>
+              <Link href={item.href as any}>
                 <SidebarMenuButton
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={cn(
@@ -190,9 +190,9 @@ export default function TrainerSidebarContent() {
                     pathname === item.href && 'bg-primary/10 text-primary font-semibold'
                   )}
                   isActive={pathname === item.href}
-                  tooltip={{children: item.label, side:"right", align:"center"}}
+                  tooltip={{ children: item.label, side: "right", align: "center" }}
                 >
-                  <item.icon className="mr-2 h-4 w-4" />
+                  <item.icon className="h-4 w-4" />
                   <span className="group-data-[[data-state=collapsed]]/sidebar:hidden">{item.label}</span>
                 </SidebarMenuButton>
               </Link>

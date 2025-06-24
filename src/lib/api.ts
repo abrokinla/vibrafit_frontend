@@ -19,20 +19,29 @@ export interface UserData {
   state: string;
   is_onboarded: boolean;
   profilePictureUrl: string | null;
-  beforePhotoUrl: string | null;   
+  beforePhotoUrl: string | null;
   currentPhotoUrl: string | null;
   trainerId: number | null;
+  trainingLevel: string | null;
   date_of_birth: string | null;
   goal: GoalPayload | null;
-}
 
+  metrics: {
+    weight?: number | null;
+    height?: number | null;
+    body_fat?: number | null;
+    bmi?: number | null;
+    muscle_mass?: number | null;
+    waist_circumference?: number | null;
+    [key: string]: number | null | undefined; // future-proof
+  };
+}
 export interface TrainerProfileData {
   bio: string;
   certifications: string;
-  specializations: string[];
+  specializations: string [];
   experience_years: number | null;
 }
-
 // Routine-related types
 export type RoutinePlan = {
   planId: number;
@@ -75,11 +84,11 @@ export interface Meal {
   description: string;
   calories: string;
 }
-
 export interface NutritionPlan {
   id?: number; 
   plan: number;
   notes?: string;
+  date: string;
   meals: Meal[];
 }
 
@@ -87,7 +96,6 @@ export interface GoalResponse {
   success: boolean;
   goal?: GoalPayload & { id: number; created_at: string };
 }
-
 export interface TrainerMeal {
   id: number;
   meal_type: 'breakfast' | 'lunch' | 'dinner';
@@ -97,20 +105,18 @@ export interface TrainerMeal {
 }
 
 export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-  const res = await fetch(`https://vibrafit.onrender.com/api/nutrition-plan/?date=${today}`, {
+  const res = await fetch(`https://vibrafit.onrender.com/api/nutrition-plan/today/`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 
   if (!res.ok) {
-    throw new Error('Failed to fetch trainer meals');
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to fetch today\'s nutrition plan');
   }
 
   const data = await res.json();
-
   return data.meals || [];
 }
 
@@ -121,36 +127,59 @@ export interface LoggedMeal {
   date: string;
   time?: string;
 }
-
-export async function fetchLoggedMeals(token: string): Promise<LoggedMeal[]> {
-  const res = await fetch(`${API_URL}/logged-meals/`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to fetch logged meals");
-  return res.json();
+export interface WorkoutLogEntry {
+  id: string;
+  name: string;
+  sets?: number;
+  reps?: number;
+  unit?: 'reps' | 'seconds' | 'minutes';
+  notes?: string;
+  date: Date;
 }
 
-export async function createLoggedMeal(token: string, meal: Partial<LoggedMeal>) {
-  const res = await fetch(`${API_URL}/logged-meals/`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(meal)
-  });
-  if (!res.ok) throw new Error("Failed to log meal");
-  return res.json();
+export interface AdHocWorkout {
+  id: number;
+  description: string;
+  date: Date;
+}
+export interface Exercise {
+  id: string;
+  exercise_id?: number;
+  name: string;
+  sets: number;
+  reps: number;
+  unit: 'reps' | 'seconds' | 'minutes';
+  notes?: string;
+  date: Date;
+  videoUrl?: string; 
 }
 
-export async function deleteLoggedMeal(token: string, id: number) {
-  const res = await fetch(`${API_URL}/logged-meals/${id}/`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-  if (!res.ok) throw new Error("Failed to delete meal");
+export interface DailyUserRoutine {
+  planId: number;
+  date: Date; 
+  routineName?: string; 
+  exercises: Exercise[];
+  trainerNotes?: string;
+}
+export interface DailyLog {
+    id: number;
+    plan: number;
+    date: string;
+    actual_exercise: { name: string }[] | string;
+    actual_nutrition: string;
+    completion_percentage: number;
+    notes: string;
+    user: number;
+}
+
+export type ActivityType = 'workout' | 'meal';
+
+export interface Activity {
+  id: number;
+  type: ActivityType;
+  description: string;
+  calories?: number;
+  date: Date;
 }
 
 export type CombinedProfileData = UserData & TrainerProfileData;

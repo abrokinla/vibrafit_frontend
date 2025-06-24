@@ -275,7 +275,6 @@
     "caloriesPlaceholder": "Introduce las calorías de la comida",
     "caloriesOptionalLabel": "Calorías (opcional)",
     "targetValueLabel": "Valor Objetivo",
-    "fitnessGoalPlaceholder": "ej: Perder 5kg en 2 meses, correr 10k en menos de 60 minutos...",
     "targetValuePlaceholder": "ej: 70 kg, 10 km, 15% grasa corporal...",
     "targetDateLabel": "Fecha Objetivo",
     "trainerMealPlanTitle": "Plan de comidas de tu entrenador para hoy",
@@ -288,7 +287,20 @@
     "caloriesLabel": "Calorías estimadas",
     "toastErrorFetchingTrainerMeals": "No se pudo cargar el plan de comidas de tu entrenador.",
     "toastErrorFetchMeals": "No se pudo cargar el historial de comidas.",
-    "LoggedMealPlaceholder": "Describe lo que comiste hoy (por ejemplo, desayuno: huevos revueltos con pan tostado)."
+    "LoggedMealPlaceholder": "Describe lo que comiste hoy (por ejemplo, desayuno: huevos revueltos con pan tostado).",
+    "uploadFailedToastDescription": "Falló la Eliminación",
+    "bodyMetricsSectionTitle": "Métricas Corporales",
+    "weightLabel": "Peso",
+    "weightPlaceholder": "Ingresa tu peso",
+    "heightLabel": "Altura",
+    "heightPlaceholder": "Ingresa tu altura",
+    "bodyFatLabel": "Grasa Corporal",
+    "bodyFatPlaceholder": "Ingresa tu porcentaje de grasa corporal",
+    "bmiLabel": "Índice de Masa Corporal (IMC)",
+    "muscleMassLabel": "Masa Muscular",
+    "muscleMassPlaceholder": "Ingresa tu masa muscular",
+    "waistCircumferenceLabel": "Circunferencia de Cintura",
+    "waistCircumferencePlaceholder": "Ingresa el tamaño de tu cintura"
   },
   "UserProfilePage": {
     "title": "Mi Perfil",
@@ -319,11 +331,18 @@
     "toastErrorDesc": "Ocurrió un error inesperado.",
     "toastProfileLoadError": "No se pudieron cargar los datos del perfil. Por favor, intenta refrescar la página."
   },
+  "motivation": {
+    "fallback1": "Eres más fuerte de lo que crees. ¡Cada paso cuenta, sigue adelante!",
+    "fallback2": "El progreso no siempre es visible, pero siempre está ocurriendo. ¡Sigue comprometido!",
+    "fallback3": "Cree en tu meta, pero confía aún más en tu esfuerzo.",
+    "fallback4": "Hoy te presentaste — y eso es poderoso.",
+    "fallback5": "Las pequeñas victorias construyen grandes logros. ¡Tú puedes!"
+  },
   "WorkoutsPage": {
     "title": "Tus Entrenamientos",
     "description": "Sigue tu plan, registra tu finalización y cualquier actividad extra.",
-    "todaysRoutineTitle": "Rutina de Hoy: {routineName}",
-    "todaysRoutineNoNameTitle": "Rutina de Hoy",
+     "todaysRoutineTitle": "Rutina de hoy: {routineName} - {date}",
+    "todaysRoutineNoNameTitle": "Rutina de hoy",
     "dateFormat": "{date, PPP}",
     "progressLabel": "Progreso: {completed} / {total} completados",
     "markExerciseCompleteLabel": "Marcar {exerciseName} como completado",
@@ -362,7 +381,9 @@
     "toastWorkoutDeletedTitle": "Entrenamiento Eliminado",
     "toastWorkoutDeletedDesc": "El registro de entrenamiento ha sido eliminado.",
     "toastDeletionFailedTitle": "Falló la Eliminación",
-    "toastDeletionFailedDesc": "No se pudo eliminar el registro de entrenamiento."
+    "toastDeletionFailedDesc": "No se pudo eliminar el registro de entrenamiento.",
+    "myWorkoutNotesLabel": "Notas del entrenamiento",
+    "myWorkoutNotesPlaceholder": "Escribe tus notas sobre el entrenamiento aquí"
   },
   "FindTrainerPage": {
     "title": "Encuentra Tu Entrenador",
@@ -512,8 +533,13 @@
     "toastErrorSavingNutrition": "Error al Guardar Plan de Nutrición",
     "toastNutritionSaved": "Plan de Nutrición Guardado",
     "toastNutritionSavedDesc": "Tus comidas han sido asignadas exitosamente.",
+    "mealCaloriesLabel": "Calorías",
+    "mealCaloriesPlaceholder": "Introduce las calorías",
     "toastNetworkError": "Error de Red",
-    "toastNetworkErrorDesc": "No se pudo guardar el plan de nutrición. Inténtalo de nuevo."
+    "toastNetworkErrorDesc": "No se pudo guardar el plan de nutrición. Inténtalo de nuevo.",
+    "editRoutineTitle": "Editar rutina",
+    "updateRoutineButton": "Actualizar rutina",
+    "selectNutritionDateLabel": "Seleccionar fecha del plan de nutrición"
   },
   "ProgressOverviewChart": {
     "weightLabel": "Peso (kg)"

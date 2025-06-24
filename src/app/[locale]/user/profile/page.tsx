@@ -17,19 +17,10 @@ import { cn } from '@/lib/utils';
 import { UserData, fetchCombinedProfile, saveUserProfile } from '@/lib/api'; // Ensure UserData is correctly typed
 import { useTranslations } from 'next-intl';
 
-// UserData should include trainingLevel if it's part of the user's editable profile
-interface UserProfilePageData extends UserData {
-  trainingLevel?: 'beginner' | 'intermediate' | 'advanced' | '';
-  // Add other fields like weight, height, bodyFat if they are to be edited here
-  weight?: number | null;
-  height?: number | null;
-  bodyFat?: number | null;
-}
-
 export default function UserProfilePage() {
   const t = useTranslations('UserProfilePage');
   const { toast } = useToast();
-  const [profile, setProfile] = useState<UserProfilePageData | null>(null);
+  const [profile, setProfile] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -40,13 +31,19 @@ export default function UserProfilePage() {
       try {
         const data = await fetchCombinedProfile(); // This fetches combined data
         // Ensure fields like trainingLevel, weight, height, bodyFat are initialized if not present
-        const profileDataWithDefaults: UserProfilePageData = {
-             ...data, 
-             trainingLevel: data.trainingLevel || '',
-             weight: data.weight || null,
-             height: data.height || null,
-             bodyFat: data.bodyFat || null,
+        const profileDataWithDefaults: UserData = {
+          ...data,
+          trainingLevel: data.trainingLevel || '',
+          metrics: {
+            weight: data.metrics?.weight ?? null,
+            height: data.metrics?.height ?? null,
+            body_fat: data.metrics?.body_fat ?? null,
+            bmi: data.metrics?.bmi ?? null,
+            muscle_mass: data.metrics?.muscle_mass ?? null,
+            waist_circumference: data.metrics?.waist_circumference ?? null,
+          }
         };
+
         setProfile(profileDataWithDefaults);
 
         if (data.date_of_birth) {
@@ -73,14 +70,29 @@ export default function UserProfilePage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
-    const { name, value } = e.target;
-    // For numeric fields that can be empty, handle conversion carefully
-    if (name === 'weight' || name === 'height' || name === 'bodyFat') {
-        setProfile({ ...profile, [name]: value === '' ? null : parseFloat(value) });
+
+    const { name, value } = e.target as HTMLInputElement;
+
+    if (
+      ['weight', 'height', 'body_fat', 'muscle_mass', 'waist_circumference'].includes(name)
+    ) {
+      const numericValue = value === '' ? null : parseFloat(value);
+      const updatedMetrics = { ...profile.metrics, [name]: numericValue };
+
+      // Auto-calculate BMI if both weight and height are available
+      const weight = updatedMetrics.weight ?? profile.metrics?.weight;
+      const height = updatedMetrics.height ?? profile.metrics?.height;
+      if (weight && height) {
+        const heightInMeters = height / 100;
+        updatedMetrics.bmi = parseFloat((weight / (heightInMeters ** 2)).toFixed(1));
+      }
+
+      setProfile({ ...profile, metrics: updatedMetrics });
     } else {
-        setProfile({ ...profile, [name]: value });
+      setProfile({ ...profile, [name]: value });
     }
   };
+
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -107,15 +119,21 @@ export default function UserProfilePage() {
         state: profile.state,
         country: profile.country,
         // Include measurement fields if they are part of UserData for saving
-        weight: typeof profile.weight === 'number' ? profile.weight : null,
-        height: typeof profile.height === 'number' ? profile.height : null,
-        bodyFat: typeof profile.bodyFat === 'number' ? profile.bodyFat : null,
+        metrics: {
+          weight: typeof profile.metrics?.weight === 'number' ? profile.metrics.weight : null,
+          height: typeof profile.metrics?.height === 'number' ? profile.metrics.height : null,
+          body_fat: typeof profile.metrics?.body_fat === 'number' ? profile.metrics.body_fat : null,
+          bmi: typeof profile.metrics?.bmi === 'number' ? profile.metrics.bmi : null,
+          muscle_mass: typeof profile.metrics?.muscle_mass === 'number' ? profile.metrics.muscle_mass : null,
+          waist_circumference: typeof profile.metrics?.waist_circumference === 'number' ? profile.metrics.waist_circumference : null,
+        },
+
       };
       const result = await saveUserProfile(profileToSave);
       if (result.success) {
         toast({ title: t('toastProfileUpdatedTitle'), description: t('toastProfileUpdatedDesc') });
       } else {
-        toast({ title: t('toastUpdateFailedTitle'), description: result.error || t('toastUpdateFailedDesc'), variant: "destructive" });
+        toast({ title: t('toastUpdateFailedTitle'), description: t('toastUpdateFailedDesc'), variant: "destructive" });
       }
     } catch (error: any) {
       console.error("Failed to save profile", error);
@@ -225,6 +243,94 @@ export default function UserProfilePage() {
                 <Input id="country" name="country" value={profile.country || ''} onChange={handleInputChange} disabled={isSaving} placeholder={t('countryPlaceholder')}/>
               </div>
             </div>
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="text-lg font-semibold">{t('bodyMetricsSectionTitle')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weight">{t('weightLabel')} (kg)</Label>
+                  <Input
+                    id="weight"
+                    name="weight"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.weight ?? ''}
+                    onChange={handleInputChange}
+                    disabled={isSaving}
+                    placeholder={t('weightPlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="height">{t('heightLabel')} (cm)</Label>
+                  <Input
+                    id="height"
+                    name="height"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.height ?? ''}
+                    onChange={handleInputChange}
+                    disabled={isSaving}
+                    placeholder={t('heightPlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="body_fat">{t('bodyFatLabel')} (%)</Label>
+                  <Input
+                    id="body_fat"
+                    name="body_fat"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.body_fat ?? ''}
+                    onChange={handleInputChange}
+                    disabled={isSaving}
+                    placeholder={t('bodyFatPlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="muscle_mass">{t('muscleMassLabel')} (kg)</Label>
+                  <Input
+                    id="muscle_mass"
+                    name="muscle_mass"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.muscle_mass ?? ''}
+                    onChange={handleInputChange}
+                    disabled={isSaving}
+                    placeholder={t('muscleMassPlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="waist_circumference">{t('waistCircumferenceLabel')} (cm)</Label>
+                  <Input
+                    id="waist_circumference"
+                    name="waist_circumference"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.waist_circumference ?? ''}
+                    onChange={handleInputChange}
+                    disabled={isSaving}
+                    placeholder={t('waistCircumferencePlaceholder')}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bmi">{t('bmiLabel')}</Label>
+                  <Input
+                    id="bmi"
+                    name="bmi"
+                    type="number"
+                    step="0.1"
+                    value={profile.metrics?.bmi ?? ''}
+                    disabled
+                    className="opacity-70 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </div>
+
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={isSaving || isLoading} className="w-full md:w-auto">

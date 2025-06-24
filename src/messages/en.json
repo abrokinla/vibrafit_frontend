@@ -289,6 +289,13 @@
     "toastErrorFetchMeals": "Could not load your meal history.",
     "LoggedMealPlaceholder": "Describe what you ate today (e.g., breakfast: scrambled eggs with toast)."
   },
+  "motivation": {
+    "fallback1": "You’re stronger than you think. Every step counts — keep going!",
+    "fallback2": "Progress isn't always visible, but it’s always happening. Stay committed!",
+    "fallback3": "Believe in the goal, but trust in your effort even more.",
+    "fallback4": "You showed up today — and that’s powerful.",
+    "fallback5": "Small wins build big victories. You’ve got this!"
+  },
   "UserProfilePage": {
     "title": "My Profile",
     "description": "View and update your personal information.",

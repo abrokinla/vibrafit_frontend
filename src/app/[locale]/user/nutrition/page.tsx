@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Apple, CalendarDays, PlusCircle, Trash2, Utensils, Target, Save, Loader2, User, Upload, UploadCloud  } from "lucide-react";
+import { Apple, CalendarDays, PlusCircle, Trash2, Utensils, Target, Save, Loader2, User, Upload, UploadCloud, Salad } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import Image from 'next/image'; 
@@ -22,7 +22,6 @@ import {
           TrainerMeal, 
           fetchTodaysTrainerMeals,
           LoggedMeal,
-          fetchLoggedMeals 
         } from '@/lib/api';
 import { uploadProgressPhoto } from '@/lib/utils';
 
@@ -101,7 +100,11 @@ export default function NutritionPage() {
   const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
   const [isLoadingMeals, setIsLoadingMeals] = useState(true);
   const [isSavingMeal, setIsSavingMeal] = useState(false);
-  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+  const [deletingMealId, setDeletingMealId] = useState<number | null>(null);
+  const [goalId, setGoalId] = useState<number | null>(null);
+  const [mealDate, setMealDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [mealTime, setMealTime] = useState<string>(() => new Date().toTimeString().split(':').slice(0,2).join(':'));
+
 
   const [user, setUser] = useState<UserData | null>(null);
   const [trainerMeals, setTrainerMeals] = useState<TrainerMeal[]>([]);
@@ -118,7 +121,7 @@ export default function NutritionPage() {
   const beforeFileInputRef = useRef<HTMLInputElement>(null);
   const currentFileInputRef = useRef<HTMLInputElement>(null);
 
- useEffect(() => {
+  useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       // Handle no token case, e.g., redirect to login
@@ -143,7 +146,6 @@ export default function NutritionPage() {
     getUserData()
       .then(data => {
         setUser(data);
-        setGoal(data.goal || '');
         setBeforePhotoPreview(data.beforePhotoUrl || null);
         setCurrentPhotoPreview(data.currentPhotoUrl || null);
         setIsLoadingProfile(false);
@@ -169,6 +171,39 @@ export default function NutritionPage() {
 
   }, [toast, t]);
 
+  useEffect(() => {
+    const fetchGoals = async () => {
+      const token = localStorage.getItem("accessToken");
+      if (!token) return;
+
+      try {
+        const res = await fetch("https://vibrafit.onrender.com/api/goals/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch goals");
+
+        const data = await res.json();
+        if (data.length > 0) {
+          const userGoal = data[0];
+          setGoal(userGoal);
+          setGoalId(userGoal.id);
+          setGoal(userGoal.description);
+          setTargetValue(userGoal.target_value);
+          setTargetDate(userGoal.target_date);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchGoals();
+  }, []);
+
   const handleAddMeal = async () => {
     if (!newMealDescription.trim()) {
       toast({ title: t('toastEmptyLogTitle'), description: t('toastEmptyLogDesc'), variant: "destructive" });
@@ -188,7 +223,7 @@ export default function NutritionPage() {
           setIsSavingMeal(false);
           return;
       }
-      const result = await addMealToApi(token, newMealDescription, calories);
+      const result = await addMealToApi(token, newMealDescription, calories, mealDate, mealTime);
       if (result.success && result.newMeal) {
         setMealHistory(prev => [result.newMeal!, ...prev]);
         setNewMealDescription('');
@@ -204,7 +239,7 @@ export default function NutritionPage() {
     }
   };
 
-  const handleDeleteMeal = async (id: string) => {
+  const handleDeleteMeal = async (id: number) => {
     const token = localStorage.getItem('accessToken');
      if (!token) {
         toast({ title: t('toastAuthError'), description: t('toastAuthErrorDesc'), variant: "destructive" });
@@ -231,68 +266,53 @@ export default function NutritionPage() {
   // AI prompt to generate motivational message
 
   const handleSaveGoal = async () => {
-    if (!user) return;
-
     if (!goal.trim() || !targetValue.trim() || !targetDate) {
-      toast({
-        title: t('toastGoalRequiredTitle'),
-        description: t('toastGoalRequiredDesc'),
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      toast({
-        title: t('toastAuthError'),
-        description: t('toastAuthErrorDesc'),
-        variant: "destructive"
-      });
+      toast({ title: "Missing data", variant: "destructive" });
       return;
     }
 
     setIsSavingGoal(true);
+    const token = localStorage.getItem("accessToken");
+    const userId = localStorage.getItem("userId");
+
+    const payload: GoalPayload = {
+      user: Number(userId),
+      description: goal,
+      target_value: targetValue,
+      target_date: targetDate,
+      status: "pending",
+    };
 
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) throw new Error("No token found");
+      const url = goalId
+        ? `https://vibrafit.onrender.com/api/goals/${goalId}/`
+        : "https://vibrafit.onrender.com/api/goals/";
 
-      const payload: GoalPayload = {
-        user: Number(userId),
-        description: goal,
-        target_value: targetValue,
-        target_date: targetDate,
-        status: "pending"
-      };
+      const method = goalId ? "PATCH" : "POST";
 
-      const res = await fetch("https://vibrafit.onrender.com/api/goals/", {
-        method: "PATCH",
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("Goal save failed:", errorData);
         throw new Error(errorData.detail || "Failed to save goal");
       }
 
-      toast({ title: t('toastGoalSavedTitle'), description: t('toastGoalSavedDesc') });
-    } catch (error: any) {
-      toast({
-        title: t('toastErrorTitle'),
-        description: error.message || t('toastErrorDesc'),
-        variant: "destructive"
-      });
+      const savedGoal = await res.json();
+      setGoalId(savedGoal.id); // Useful if it was a new goal
+      toast({ title: "Goal saved successfully!" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setIsSavingGoal(false);
     }
   };
-
 
  const handlePhotoUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -318,7 +338,12 @@ export default function NutritionPage() {
         else setCurrentPhotoPreview(result.newUrl);
         toast({ title: t('photoUpdatedToastTitle', { photoType: t(photoType) }), description: t('photoUpdatedToastDescription') });
       } else {
-        toast({ title: t('uploadFailedToastTitle'), description: result.error || t('uploadFailedToastDescription'), variant: "destructive" });
+        toast({
+          title: t('uploadFailedToastTitle'),
+          description: t('uploadFailedToastDescription'),
+          variant: "destructive"
+        });
+
         setPreview(user[dbField as keyof UserData] as string | null);
         URL.revokeObjectURL(tempPreviewUrl);
       }
@@ -500,15 +525,38 @@ export default function NutritionPage() {
             onChange={(e) => setNewMealDescription(e.target.value)}
             disabled={isSavingMeal}
           />
+
           <div className="space-y-1">
             <Label htmlFor="meal-calories">{t('caloriesOptionalLabel')}</Label>
             <Input 
-                id="meal-calories"
-                type="number"
-                placeholder={t('caloriesPlaceholder')}
-                value={newMealCalories}
-                onChange={(e) => setNewMealCalories(e.target.value)}
-                disabled={isSavingMeal}
+              id="meal-calories"
+              type="number"
+              placeholder={t('caloriesPlaceholder')}
+              value={newMealCalories}
+              onChange={(e) => setNewMealCalories(e.target.value)}
+              disabled={isSavingMeal}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="meal-date">Meal Date</Label>
+            <Input 
+              id="meal-date"
+              type="date"
+              value={mealDate}
+              onChange={(e) => setMealDate(e.target.value)}
+              disabled={isSavingMeal}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="meal-time">Meal Time</Label>
+            <Input 
+              id="meal-time"
+              type="time"
+              value={mealTime}
+              onChange={(e) => setMealTime(e.target.value)}
+              disabled={isSavingMeal}
             />
           </div>
         </CardContent>

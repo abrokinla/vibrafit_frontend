@@ -18,6 +18,7 @@ interface MotivationData {
 
 export default function AiMotivationCard({ userId, goal, progress }: AiMotivationCardProps) {
   const t = useTranslations('AiMotivationCard');
+  const tf = useTranslations(); // For fallback translation keys like "motivation.fallback1"
   const [motivationData, setMotivationData] = useState<MotivationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,7 +38,7 @@ export default function AiMotivationCard({ userId, goal, progress }: AiMotivatio
         setMotivationData(data);
       } catch (error) {
         console.error("Failed to fetch motivation:", error);
-        setMotivationData({ message: "Could not load motivation at this time." });
+        setMotivationData({ message: "motivation.fallback1" }); // default fallback key
       }
       setIsLoading(false);
     }
@@ -67,6 +68,10 @@ export default function AiMotivationCard({ userId, goal, progress }: AiMotivatio
     motivationData.message.includes("Set your fitness goal") ||
     motivationData.message.includes("Establece tu meta de fitness");
 
+  const displayMessage = motivationData.message.startsWith("motivation.")
+    ? tf(motivationData.message)
+    : motivationData.message;
+
   return (
     <Card className={`shadow-sm ${isPromptToSetGoal ? 'bg-secondary/70' : 'bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20'}`}>
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -81,7 +86,7 @@ export default function AiMotivationCard({ userId, goal, progress }: AiMotivatio
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-foreground">{motivationData.message}</p>
+        <p className="text-foreground">{displayMessage}</p>
         {isPromptToSetGoal && (
           <Link href="/user/nutrition" className="text-sm text-primary hover:underline mt-3 inline-block font-medium">
             {t('setGoalLink')}

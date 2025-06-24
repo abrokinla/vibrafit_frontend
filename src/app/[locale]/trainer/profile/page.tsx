@@ -49,17 +49,23 @@ export default function TrainerProfilePage() {
 
       setProfile(prev => {
         if (!prev) return prev;
+
         if (name === 'experience_years') {
-          const num = value === '' ? null : Number(value); 
+          const num = value === '' ? null : Number(value);
           return { ...prev, experience_years: num };
         }
-        // Handle specializations as a string for textarea, convert to array on save
+
         if (name === 'specializations_string') {
-            return { ...prev, specializations: value }; // Store as string temporarily
+          return {
+            ...prev,
+            specializations_string: value, // temp string field just for UI
+          };
         }
+
         return { ...prev, [name]: value };
       });
-    };
+    }
+
     
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,10 +83,12 @@ export default function TrainerProfilePage() {
 
     setIsSaving(true);
     try {
-      const specializationsArray = typeof profile.specializations === 'string' 
-        ? profile.specializations.split(',').map(s => s.trim()).filter(s => s)
-        : (Array.isArray(profile.specializations) ? profile.specializations : []);
-
+      const specializationsArray =
+        typeof profile.specializations === 'string'
+          ? (profile.specializations as string).split(',').map(s => s.trim()).filter(Boolean)
+          : Array.isArray(profile.specializations)
+            ? profile.specializations
+            : [];
 
       const toSave: Partial<TrainerProfileData> = {
         bio: profile.bio,

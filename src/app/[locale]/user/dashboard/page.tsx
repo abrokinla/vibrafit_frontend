@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react";
-import { getUserData, UserData } from '@/lib/api';
+import { getUserData, UserData, LoggedMeal, DailyLog, Activity } from '@/lib/api';
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
@@ -19,12 +19,83 @@ import OnboardingModal from '@/components/user/onboarding-modal';
 import { useToast } from "@/hooks/use-toast";
 import { uploadProgressPhoto } from '@/lib/utils'; 
 import { useTranslations } from 'next-intl';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
-interface Activity {
-  id: number;
-  type: 'workout' | 'meal';
-  description: string;
-  date: Date;
+const BASE_URL = "https://vibrafit.onrender.com/api";
+
+export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
+  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    throw new Error("Failed to fetch meals");
+  }
+
+  return res.json();
+}
+
+export async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
+  const res = await fetch(`${BASE_URL}/daily-logs/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    throw new Error('Failed to fetch daily logs');
+  }
+
+  return res.json();
+}
+
+export async function fetchRecentActivities(token: string, limit = 10): Promise<Activity[]> {
+  const [meals, logs] = await Promise.all([
+    fetchMealsFromApi(token),
+    fetchDailyLogs(token),
+  ]);
+
+  const mealActivities: Activity[] = meals.map(meal => ({
+    id: meal.id,
+    type: 'meal',
+    description: meal.description,
+    date: parseISO(meal.date),
+  }));
+
+  const workoutActivities: Activity[] = logs.flatMap(log => {
+    let exercises: any[] = [];
+
+    if (typeof log.actual_exercise === 'string') {
+      try {
+        exercises = JSON.parse(log.actual_exercise);
+      } catch (err) {
+        console.warn("Failed to parse actual_exercise JSON", err);
+        exercises = [];
+      }
+    } else if (Array.isArray(log.actual_exercise)) {
+      exercises = log.actual_exercise;
+    }
+
+    return exercises.map((exercise, index) => ({
+      id: Number(`${log.id}${index}`),
+      type: 'workout',
+      description: exercise.name || 'Exercise',
+      date: parseISO(log.date),
+    }));
+  });
+
+
+
+
+  const combined: Activity[] = [...mealActivities, ...workoutActivities];
+
+  return combined
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, limit);
 }
 
 export default function UserDashboardPage() {
@@ -35,8 +106,10 @@ export default function UserDashboardPage() {
    const [trainerName, setTrainerName] = useState<string | null>(null);
    const [showOnboarding, setShowOnboarding] = useState(false);
    const [isLoadingUser, setIsLoadingUser] = useState(true);
-   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
    const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+   const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
+   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
 
    const [beforePhotoPreview, setBeforePhotoPreview] = useState<string | null>(null);
    const [currentPhotoPreview, setCurrentPhotoPreview] = useState<string | null>(null);
@@ -45,7 +118,7 @@ export default function UserDashboardPage() {
 
    const beforeFileInputRef = useRef<HTMLInputElement>(null);
    const currentFileInputRef = useRef<HTMLInputElement>(null);
-
+  
    useEffect(() => {
     const loadUserAndActivities = async () => {
       setIsLoadingUser(true);
@@ -95,8 +168,54 @@ export default function UserDashboardPage() {
     loadUserAndActivities();
   }, [router, toast, t]);
 
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
 
-   const handleOnboardingComplete = async () => {
+    (async () => {
+      try {
+        const meals = await fetchMealsFromApi(token);
+        setMealHistory(meals);
+
+        const logs = await fetchDailyLogs(token);
+        setDailyLogs(logs);
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    (async () => {
+      try {
+        const activities = await fetchRecentActivities(token, 10);
+        setRecentActivities(activities);
+      } catch (err) {
+        console.error('Failed to fetch recent activity:', err);
+      }
+    })();
+  }, []);
+
+  const todayCalories = mealHistory
+    .filter((meal: LoggedMeal) =>
+      format(new Date(meal.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+    )
+    .reduce((sum, meal) => sum + (meal.calories ?? 0), 0);
+
+  const workoutsThisWeek = dailyLogs
+    .filter((log: DailyLog) => {
+      const logDate = new Date(log.date);
+      return isWithinInterval(logDate, {
+        start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        end: endOfWeek(new Date(), { weekStartsOn: 1 })
+      }) && Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
+    })
+    .length;
+  
+  const handleOnboardingComplete = async () => {
     try {   
       const updatedUser = await getUserData();    
       setUser(updatedUser);
@@ -136,7 +255,7 @@ export default function UserDashboardPage() {
                 setUser(prev => prev ? { ...prev, [dbField]: result.newUrl } : null);
                 toast({ title: t('photoUpdatedToastTitle', { photoType: photoType.charAt(0).toUpperCase() + photoType.slice(1) }), description: t('photoUpdatedToastDescription') });
             } else {
-                toast({ title: t('uploadFailedToastTitle'), description: result.error || t('uploadFailedToastDescription'), variant: "destructive" });
+                toast({ title: t('uploadFailedToastTitle'), description: t('uploadFailedToastDescription'), variant: "destructive" });
                 setPreview(user[dbField as keyof UserData] as string | null); 
                 URL.revokeObjectURL(tempPreviewUrl);
             }
@@ -293,7 +412,7 @@ export default function UserDashboardPage() {
             <Scale className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.weight ? `${user.weight} kg` : '-- kg'}</div>
+            <div className="text-2xl font-bold">{user.metrics.weight ? `${user.metrics.weight} kg` : '-- kg'}</div>
             <Link href="/user/measurements" passHref>
                 <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('updateInMeasurementsLink')}</Button>
             </Link>
@@ -305,7 +424,7 @@ export default function UserDashboardPage() {
             <Dumbbell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.workoutsThisWeek || '--'}</div>
+            <div className="text-2xl font-bold">{workoutsThisWeek || '--'}</div>
             <Link href="/user/workouts" passHref>
                 <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInWorkoutsLink')}</Button>
             </Link>
@@ -317,7 +436,7 @@ export default function UserDashboardPage() {
             <Apple className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.caloriesToday || '----'}</div>
+            <div className="text-2xl font-bold">{todayCalories || '----'}</div>
             <Link href="/user/nutrition" passHref>
                 <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInNutritionLink')}</Button>
             </Link>
@@ -340,15 +459,11 @@ export default function UserDashboardPage() {
                 <p className="text-xs text-muted-foreground">
                   {t('youAreConnected')}
                 </p>
-                <Link href={`/user/find-trainer/${user.trainerId}`} passHref>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-xs p-0 h-auto mt-1"
-                  >
+                <Button asChild variant="link" size="sm" className="text-xs p-0 h-auto mt-1">
+                  <Link href={`/user/find-trainer/${user.trainerId}`}>
                     {t('viewTrainerProfileLink')}
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </>
             ) : (
               <>

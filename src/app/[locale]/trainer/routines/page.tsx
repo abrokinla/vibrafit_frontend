@@ -29,8 +29,13 @@ export default function TrainerRoutinesPage() {
   const [routines, setRoutines] = useState<RoutinePlan[]>([]);
   const [editingRoutineId, setEditingRoutineId] = useState<number | null>(null);
   const [nutritionItems, setNutritionItems] = useState<Meal[]>([
-    { id: undefined, nutrition_plan: undefined, meal_type: "breakfast", time: "", description: "" },
+    { id: undefined, nutrition_plan: undefined, meal_type: "breakfast", time: "", description: "", calories: "" },
   ]);
+  const [nutritionDate, setNutritionDate] = useState(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return today;
+  });
+
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -139,7 +144,7 @@ export default function TrainerRoutinesPage() {
     }
 
     const routinePayload = {
-        client: selectedClient, // Ensure this matches API (ID directly)
+        clientId: selectedClient,
         routineName, 
         startDate, 
         frequency,
@@ -198,16 +203,30 @@ export default function TrainerRoutinesPage() {
   };
 
   const handleAddMeal = () => {
-    setNutritionItems((prev) => [ ...prev, { id: undefined, nutrition_plan: undefined, meal_type: "breakfast", time: "", description: "" }]);
+    setNutritionItems((prev) => [ ...prev, { id: undefined, nutrition_plan: undefined, meal_type: "breakfast", time: "", description: "", calories: "" }]);
   };
 
   const handleRemoveMeal = (index: number) => {
     setNutritionItems((prev) => { if (prev.length <= 1) return prev; return prev.filter((_, i) => i !== index); });
   };
 
-  const handleChangeMeal = (index: number, key: keyof Meal, value: string) => {
-    setNutritionItems((prev) => { const updated = [...prev]; updated[index] = { ...updated[index], [key]: value }; return updated; });
-  };
+  function  handleChangeMeal(
+    index: number,
+    field: keyof Meal,
+    value: string | number
+  ) {
+    setNutritionItems((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: 
+          field === 'calories'
+            ? Number(value) 
+            : value.toString(),
+      };
+      return updated;
+    });
+  }
 
   const fetchClientPlanIdForNutrition = async (clientId: number): Promise<number | null> => {
     const token = localStorage.getItem('accessToken');
@@ -218,7 +237,7 @@ export default function TrainerRoutinesPage() {
       const res = await fetch('https://vibrafit.onrender.com/api/plans/', { headers: { Authorization: `Bearer ${token}` }});
       if (!res.ok) throw new Error("Failed to fetch plans for nutrition linking");
       const plans: RoutinePlan[] = await res.json();
-      const clientRoutinePlan = plans.find(p => p.client === clientId && p.routineName === routineName); // Link to specific routine or most recent?
+      const clientRoutinePlan = plans.find(p => p.client === clientId);
       return clientRoutinePlan ? clientRoutinePlan.planId : null;
     } catch (error) { 
       console.error("Error fetching client plan ID for nutrition:", error); 
@@ -227,61 +246,89 @@ export default function TrainerRoutinesPage() {
   };
 
   const handleSaveNutritionPlan = async () => {
-    if (!selectedClient) {
-        toast({ title: t('toastMissingInfo'), description: t('toastSelectClientForNutrition'), variant: "destructive"});
-        return;
-    }
-    if (nutritionItems.some(item => !item.time || !item.description)) {
-        toast({ title: t('toastMissingInfo'), description: t('toastFillAllMealDetails'), variant: "destructive"});
-        return;
-    }
+  if (!selectedClient) {
+    toast({
+      title: t('toastMissingInfo'),
+      description: t('toastSelectClientForNutrition'),
+      variant: "destructive"
+    });
+    return;
+  }
 
-    setIsSaving(true);
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-        toast({ title: t('toastAuthError'), description: t('toastAuthErrorDesc'), variant: "destructive" });
-        setIsSaving(false);
-        return;
-    }
+  if (nutritionItems.some(item => !item.time || !item.description)) {
+    toast({
+      title: t('toastMissingInfo'),
+      description: t('toastFillAllMealDetails'),
+      variant: "destructive"
+    });
+    return;
+  }
 
-    const planIdForNutrition = await fetchClientPlanIdForNutrition(Number(selectedClient));
-    
-    if (!planIdForNutrition) {
-      toast({ title: t('toastNoRoutineFound'), description: t('toastNoRoutineFoundDesc'), variant: "destructive" });
-      setIsSaving(false); 
-      return;
-    }
+  setIsSaving(true);
+  const token = localStorage.getItem("accessToken");
+  if (!token) {
+    toast({
+      title: t('toastAuthError'),
+      description: t('toastAuthErrorDesc'),
+      variant: "destructive"
+    });
+    setIsSaving(false);
+    return;
+  }
 
-    const payload: Omit<NutritionPlan, 'id'> = {
-      plan: planIdForNutrition,
-      notes: "",
-      meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal), 
-    };
+  const planIdForNutrition = await fetchClientPlanIdForNutrition(Number(selectedClient));
 
-    try {
-      const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
-        method: "POST", 
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
+  if (!planIdForNutrition) {
+    toast({
+      title: t('toastNoRoutineFound'),
+      description: t('toastNoRoutineFoundDesc'),
+      variant: "destructive"
+    });
+    setIsSaving(false);
+    return;
+  }
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err?.detail || JSON.stringify(err) || "Failed to save nutrition plan");
-      } 
-      
-      const savedPlan: NutritionPlan = await res.json();
-      toast({ title: t('toastNutritionSaved'), description: t('toastNutritionSavedDesc') });
-      // Optionally refresh or update UI with savedPlan data
-      setNutritionItems(savedPlan.meals.map(m => ({...m, id: m.id || Date.now() }))); 
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('toastNetworkErrorDesc');
-      toast({ title: t('toastErrorSavingNutrition'), description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
+  const payload: Omit<NutritionPlan, 'id'> = {
+    plan: planIdForNutrition,
+    notes: "",
+    date: nutritionDate,
+    meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal),
   };
+
+  try {
+    const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err?.detail || JSON.stringify(err) || "Failed to save nutrition plan");
+    }
+
+    const savedPlan: NutritionPlan = await res.json();
+    toast({
+      title: t('toastNutritionSaved'),
+      description: t('toastNutritionSavedDesc'),
+    });
+
+    setNutritionItems(savedPlan.meals.map(m => ({ ...m, id: m.id || Date.now() })));
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : t('toastNetworkErrorDesc');
+    toast({
+      title: t('toastErrorSavingNutrition'),
+      description: errorMessage,
+      variant: "destructive"
+    });
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   return (
     <div className="space-y-8">
@@ -355,21 +402,55 @@ export default function TrainerRoutinesPage() {
       
       <Card className="shadow-sm">
         <CardHeader><CardTitle>{t('assignedRoutinesTitle')}</CardTitle><CardDescription>{t('assignedRoutinesDescription')}</CardDescription></CardHeader>
-        <CardContent>{routines.length === 0 ? (<p className="text-muted-foreground text-center py-8">{t('noAssignedRoutines')}</p>
-          ) : (<div className="space-y-4">{routines.map((routine) => (
+        <CardContent>
+          {routines.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              {t('noAssignedRoutines')}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {routines.map((routine) => (
                 <Card key={routine.planId} className="border p-4">
-                    <CardTitle className="text-lg mb-1">{routine.routineName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">Client: {clients.find(c => c.id === routine.client.toString())?.name || 'N/A'}</p>
-                    <p className="text-sm text-muted-foreground">Start Date: {routine.startDate}</p>
-                    <p className="text-sm text-muted-foreground">Frequency: {routine.frequency}</p>
-                   <ul className="list-disc pl-5 mt-2 text-sm">{routine.exercises?.map((ex, index) => (<li key={`${ex.name}-${index}`}>{ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}</li>))}</ul>
+                  <CardTitle className="text-lg mb-1">
+                    {routine.routineName}
+                  </CardTitle>
+
+                  {/* Show client name since trainers see multi-client */}
+                  <p className="text-sm text-muted-foreground">
+                    Client: {
+                      clients.find(c => String(c.id) === String(routine.client))?.name || 'N/A'
+                    }
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Start Date: {routine.startDate}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Frequency: {routine.frequency}
+                  </p>
+
+                  <ul className="list-disc pl-5 mt-2 text-sm">
+                    {routine.exercises.map((ex, i) => (
+                      <li key={`${ex.name}-${i}`}>
+                        {ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}
+                      </li>
+                    ))}
+                  </ul>
+
                   <div className="mt-4 flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleEditRoutine(routine)}>{t('editButton')}</Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteRoutine(routine.planId)}>{t('deleteButton')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleEditRoutine(routine)}>
+                      {t('editButton')}
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteRoutine(routine.planId)}>
+                      {t('deleteButton')}
+                    </Button>
                   </div>
-                </Card>))}
-            </div>)}
+                </Card>
+              ))}
+            </div>
+          )}
         </CardContent>
+
       </Card>
 
       <Card className="shadow-lg">
@@ -383,7 +464,17 @@ export default function TrainerRoutinesPage() {
                   <SelectContent>{clients.map((client) => (<SelectItem key={client.id} value={String(client.id)}><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{client.name}</div></SelectItem>))}</SelectContent>
                 </Select>
             </div>
-             {/* You might want a date for the nutrition plan as well, or link it to the routine's start date */}
+             <div className="space-y-2">
+              <Label htmlFor="nutrition-date">{t('selectNutritionDateLabel') || "Select Date"}</Label>
+              <Input
+                id="nutrition-date"
+                type="date"
+                value={nutritionDate}
+                onChange={(e) => setNutritionDate(e.target.value)}
+                disabled={isSaving}
+                required
+              />
+            </div>
           </div>
           <div className="space-y-4 pt-4 border-t">
             <div className="flex justify-between items-center">
