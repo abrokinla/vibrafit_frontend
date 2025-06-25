@@ -1,3 +1,7 @@
+const API_BASE_URL = 'https://vibrafit.onrender.com';
+const token = localStorage.getItem('accessToken');
+const userId = localStorage.getItem('userId');
+
 export interface GoalPayload {
   user: number;
   description: string;
@@ -36,6 +40,7 @@ export interface UserData {
     [key: string]: number | null | undefined; // future-proof
   };
 }
+
 export interface TrainerProfileData {
   bio: string;
   certifications: string;
@@ -84,11 +89,13 @@ export interface Meal {
   description: string;
   calories: string;
 }
+
 export interface NutritionPlan {
   id?: number; 
   plan: number;
   notes?: string;
-  date: string;
+  start_date: string;
+  end_date: string;
   meals: Meal[];
 }
 
@@ -185,9 +192,6 @@ export interface Activity {
 export type CombinedProfileData = UserData & TrainerProfileData;
 
 export async function getUserData(): Promise<UserData> {
-  const token = localStorage.getItem('accessToken');
-  const userId = localStorage.getItem('userId');
-
   if (!token || !userId) {
     throw new Error('NO_CREDENTIALS');
   }
@@ -206,17 +210,26 @@ export async function getUserData(): Promise<UserData> {
   if (res.status === 401 || res.status === 403) {
     throw new Error('UNAUTHORIZED');
   }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || 'FETCH_ERROR');
   }
 
-  return res.json();
+  const rawUser = await res.json();
+
+  const metricsObject: UserData['metrics'] = {};
+  for (const metric of rawUser.metrics || []) {
+    metricsObject[metric.type] = metric.value;
+  }
+
+  return {
+    ...rawUser,
+    metrics: metricsObject,
+  };
 }
 
 export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
-  const token = localStorage.getItem('accessToken');
-
   const userRes = await fetch('https://vibrafit.onrender.com/api/users/profile/', {
     headers: {
       'Content-Type': 'application/json',
@@ -258,7 +271,6 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
 export async function saveTrainerProfile(
   data: Partial<TrainerProfileData>
 ): Promise<{ success: boolean }> {
-  const token = localStorage.getItem('accessToken');
   if (!token) throw new Error('NO_CREDENTIALS');
 
   const res = await fetch(
@@ -286,8 +298,7 @@ export async function saveTrainerProfile(
 
 export async function saveUserProfile(
   data: Partial<UserData>
-): Promise<{ success: boolean }> {
-  const token = localStorage.getItem('accessToken');
+): Promise<{ success: boolean }> {;
   if (!token) throw new Error('NO_CREDENTIALS');
 
   const res = await fetch(
@@ -311,4 +322,41 @@ export async function saveUserProfile(
   }
 
   return { success: true };
+  
 }
+
+
+type MetricInput = {
+  type: string;
+  value: number;
+};
+
+export const saveMetrics = async (
+  metrics: MetricInput[]
+): Promise<{ success: boolean; message?: string }> => {
+
+  try {
+    for (const { type, value } of metrics) {
+      const res = await fetch(`${API_BASE_URL}/api/metrics/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type, value }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Failed to save ${type}`);
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || "Save failed.",
+    };
+  }
+};

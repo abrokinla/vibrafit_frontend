@@ -1,81 +1,107 @@
-
 'use client';
 
-import { TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, Tooltip } from "recharts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useTranslations } from "next-intl";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { useTranslations } from "next-intl";
 
-// Sample data - replace with actual fetched data
-const chartData = [
-  { week: "Week 1", weight: 76.0 }, // These week labels could be dynamic/translated if needed
-  { week: "Week 2", weight: 75.5 },
-  { week: "Week 3", weight: 75.2 },
-  { week: "Week 4", weight: 74.8 },
-  { week: "Week 5", weight: 74.5 },
-  { week: "Week 6", weight: 74.0 },
-];
+// Type for metric fetched from backend
+type WeightMetric = {
+  value: number;
+  recorded_at: string;
+};
 
 export default function ProgressOverviewChart() {
   const t = useTranslations('ProgressOverviewChart');
 
+  const [chartData, setChartData] = useState<{ week: string; weight: number }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const chartConfig = {
     weight: {
       label: t('weightLabel'),
-      color: "hsl(var(--primary))", 
+      color: "hsl(var(--primary))",
     },
   } satisfies ChartConfig;
-  
+
+  useEffect(() => {
+    const API_BASE_URL = 'https://vibrafit.onrender.com';
+
+    async function fetchWeightData() {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const res = await fetch(`${API_BASE_URL}/api/metrics/?type=weight`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch: ${res.status}`);
+        }
+
+        const data: WeightMetric[] = await res.json();
+
+        const formatted = data.map((item) => ({
+          week: new Date(item.recorded_at).toLocaleDateString('en-GB'),
+          weight: item.value,
+        }));
+
+        setChartData(formatted);
+      } catch (err) {
+        console.error("Failed to fetch weight data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchWeightData();
+  }, []);
+
+  if (isLoading) {
+    return <div className="h-[250px] bg-muted rounded animate-pulse" />;
+  }
+
   return (
-      <ChartContainer config={chartConfig} className="h-[250px] w-full">
-        <LineChart
-          accessibilityLayer
-          data={chartData}
-          margin={{
-            left: 12,
-            right: 12,
-          }}
-        >
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis
-            dataKey="week"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            tickFormatter={(value) => value.slice(0, 6)} 
-          />
-           <YAxis
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            domain={['dataMin - 1', 'dataMax + 1']} 
-            tickFormatter={(value) => `${value} kg`}
-          />
-          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-          <Line
-            dataKey="weight"
-            type="monotone"
-            stroke="var(--color-weight)"
-            strokeWidth={2}
-            dot={true}
-             activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ChartContainer>
+    <ChartContainer config={chartConfig} className="h-[250px] w-full">
+      <LineChart
+        accessibilityLayer
+        data={chartData}
+        margin={{
+          left: 12,
+          right: 12,
+        }}
+      >
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="week"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          domain={['dataMin - 1', 'dataMax + 1']}
+          tickFormatter={(value) => `${value} kg`}
+        />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+        <Line
+          dataKey="weight"
+          type="monotone"
+          stroke="var(--color-weight)"
+          strokeWidth={2}
+          dot={true}
+          activeDot={{ r: 6 }}
+        />
+      </LineChart>
+    </ChartContainer>
   );
 }
-
-    

@@ -11,85 +11,110 @@ import { Scale, Ruler, TrendingUp, Loader2 } from "lucide-react";
 import ProgressOverviewChart from '@/components/user/progress-overview-chart'; 
 import { useToast } from "@/hooks/use-toast";
 import { useTranslations } from 'next-intl';
-import { getUserData, saveUserProfile, UserData } from '@/lib/api'; // Import API functions
+import { getUserData, saveMetrics } from '@/lib/api';
+import { useRouter } from "next/navigation";
+
+const METRIC_FIELDS = [
+  { id: 'weight', label: 'Weight (kg)', icon: Scale },
+  { id: 'height', label: 'Height (cm)', icon: Ruler },
+  { id: 'body_fat', label: 'Body Fat (%)', icon: TrendingUp },
+  { id: 'bmi', label: 'BMI', icon: TrendingUp },
+  { id: 'muscle_mass', label: 'Muscle Mass (kg)', icon: TrendingUp },
+  { id: 'waist_circumference', label: 'Waist Circumference (cm)', icon: TrendingUp },
+];
 
 export default function MeasurementsPage() {
   const t = useTranslations('MeasurementsPage');
+  const router = useRouter();
   const { toast } = useToast();
-  const [weight, setWeight] = useState<number | string>('');
-  const [height, setHeight] = useState<number | string>('');
-  const [bodyFat, setBodyFat] = useState<number | string>(''); // Assuming bodyFat is part of UserData now
+  const [metrics, setMetrics] = useState<Record<string, number | string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null); 
 
   useEffect(() => {
     setIsLoading(true);
+    
     const fetchData = async () => {
-        try {
-            const data = await getUserData(); // Fetch user data which includes measurements
-            setWeight(data.weight || '');
-            setHeight(data.height || '');
-            setBodyFat(data.bodyFat || ''); // Assuming bodyFat exists on UserData
-            if (data.updated_at) { // Use updated_at from UserData if available
-                 setLastUpdated(new Date(data.updated_at).toLocaleString());
-            }
-        } catch (error: any) {
-             toast({
-                title: t('toastErrorLoadTitle'),
-                description: error.message || t('toastErrorLoadDesc'),
-                variant: "destructive",
-            });
-        } finally {
-            setIsLoading(false);
+    try {
+      const data = await getUserData();
+      const initialMetrics = {
+          weight: data.metrics?.weight ?? '',
+          height: data.metrics?.height ?? '',
+          body_fat: data.metrics?.body_fat ?? '',
+          bmi: data.metrics?.bmi ?? '',
+          muscle_mass: data.metrics?.muscle_mass ?? '',
+          waist_circumference: data.metrics?.waist_circumference ?? '',
+        };
+        setMetrics(initialMetrics);
+        if (data.updated_at) {
+          setLastUpdated(new Date(data.updated_at).toLocaleString());
         }
+      } catch (error: any) {
+        toast({
+          title: t('toastErrorLoadTitle'),
+          description: error.message || t('toastErrorLoadDesc'),
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchData();
   }, [toast, t]);
-
    const handleSaveChanges = async () => {
     setIsSaving(true);
+
     try {
-      const measurementsToSave: Partial<UserData> = {};
-      if (weight !== '') measurementsToSave.weight = parseFloat(String(weight));
-      if (height !== '') measurementsToSave.height = parseFloat(String(height));
-      if (bodyFat !== '') measurementsToSave.bodyFat = parseFloat(String(bodyFat));
+      const metricsToSave: { type: string; value: number }[] = [];
 
-
-      const result = await saveUserProfile(measurementsToSave); // Use saveUserProfile
-      if (result.success) {
-         setLastUpdated(new Date().toLocaleString()); 
-         toast({
-            title: t('toastUpdatedTitle'),
-            description: t('toastUpdatedDesc'),
-          });
-      } else {
-         toast({
-            title: t('toastUpdateFailedTitle'),
-            description: t('toastUpdateFailedDesc'),
-            variant: "destructive",
-          });
+      for (const [type, value] of Object.entries(metrics)) {
+        if (value !== '' && !isNaN(Number(value))) {
+          metricsToSave.push({ type, value: parseFloat(String(value)) });
+        }
       }
-    } catch (error: any) {
-      console.error("Failed to save measurements:", error);
+      const result = await saveMetrics(metricsToSave);
+
+      if (!result.success) {
+        throw new Error(result.message || "Metric update failed.");
+      }
+
+      setLastUpdated(new Date().toLocaleString());
+
       toast({
-        title: t('toastErrorSaveTitle'),
-        description: error.message || t('toastErrorSaveDesc'),
-        variant: "destructive",
+        title: t('toastUpdatedTitle'),
+        description: t('toastUpdatedDesc'),
       });
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.message?.includes("401")) {
+        toast({
+          title: t('sessionExpiredTitle') || "Session expired",
+          description: t('sessionExpiredDesc') || "Please sign in again.",
+          variant: "destructive",
+        });
+
+        setTimeout(() => {
+          router.push('/signin');
+        }, 1500);
+      } else {
+        toast({
+          title: t('toastErrorSaveTitle'),
+          description: error.message || t('toastErrorSaveDesc'),
+          variant: "destructive",
+        });
+      }
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
-  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string | number>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-     const value = e.target.value;
-     // Allow empty string, numbers, and numbers with a single decimal point
-     if (value === '' || /^\d*\.?\d*$/.test(value)) {
-        setter(value); 
-     }
+  const handleInputChange = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setMetrics(prev => ({ ...prev, [key]: value }));
+    }
   };
-
+  
   const lastUpdatedText = lastUpdated
     ? t('lastUpdated', { date: lastUpdated })
     : t('noUpdatesRecorded');
@@ -100,72 +125,48 @@ export default function MeasurementsPage() {
       <p className="text-muted-foreground">{t('description')}</p>
 
       <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>{t('updateMetricsTitle')}</CardTitle>
-          <CardDescription>{lastUpdatedText}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-           {isLoading ? (
-             <div className="space-y-4">
-               <div className="h-10 bg-muted rounded animate-pulse"></div>
-               <div className="h-10 bg-muted rounded animate-pulse"></div>
-               <div className="h-10 bg-muted rounded animate-pulse"></div>
-               <div className="h-10 w-28 bg-muted rounded animate-pulse mt-2"></div>
-             </div>
-           ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="weight" className="flex items-center gap-2">
-                    <Scale className="h-4 w-4" /> {t('weightLabel')}
+      <CardHeader>
+        <CardTitle>{t('updateMetricsTitle')}</CardTitle>
+        <CardDescription>{lastUpdatedText}</CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-10 bg-muted rounded animate-pulse"></div>
+            ))}
+            <div className="h-10 w-28 bg-muted rounded animate-pulse mt-2"></div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              {METRIC_FIELDS.map(({ id, label, icon: Icon }) => (
+                <div className="space-y-2" key={id}>
+                  <Label htmlFor={id} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" /> {t(`${id}Label`, { default: label })}
                   </Label>
                   <Input
-                    id="weight"
-                    type="text" // Use text to allow better control with regex
-                    inputMode="decimal" // Hint for mobile keyboards
-                    placeholder={t('weightPlaceholder')}
-                    value={weight}
-                    onChange={handleInputChange(setWeight)}
+                    id={id}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder={t(`${id}Placeholder`, { default: label })}
+                    value={metrics[id] ?? ''}
+                    onChange={handleInputChange(id)}
                     disabled={isSaving}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="height" className="flex items-center gap-2">
-                     <Ruler className="h-4 w-4" /> {t('heightLabel')}
-                  </Label>
-                  <Input
-                    id="height"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder={t('heightPlaceholder')}
-                    value={height}
-                    onChange={handleInputChange(setHeight)}
-                     disabled={isSaving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bodyFat" className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" /> {t('bodyFatLabel')}
-                  </Label>
-                  <Input
-                    id="bodyFat"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder={t('bodyFatPlaceholder')}
-                    value={bodyFat}
-                     onChange={handleInputChange(setBodyFat)}
-                    disabled={isSaving}
-                  />
-                </div>
-              </div>
-               <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isSaving ? t('savingButton') : t('saveButton')}
-              </Button>
-            </>
-           )}
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+
+            <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isSaving ? t('savingButton') : t('saveButton')}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
 
       <Card className="shadow-sm">
         <CardHeader>

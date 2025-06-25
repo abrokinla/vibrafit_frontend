@@ -206,8 +206,14 @@
     "weightPlaceholder": "ej: 75.5",
     "heightLabel": "Altura (cm)",
     "heightPlaceholder": "ej: 175",
-    "bodyFatLabel": "Grasa Corporal (%)",
-    "bodyFatPlaceholder": "ej: 18.5",
+    "body_fatLabel": "Grasa Corporal (%)",
+    "body_fatPlaceholder": "ej: 18.5",
+    "waist_circumferencePlaceholder": "Introduce la circunferencia de la cintura en cm",
+    "waist_circumferenceLabel": "Circunferencia de la cintura (cm)",
+    "muscle_massPlaceholder": "Introduce la masa muscular en kg",
+    "muscle_massLabel": "Masa muscular (kg)",
+    "bmiPlaceholder": "Introduce tu índice de masa corporal (IMC)",
+    "bmiLabel": "Índice de masa corporal (IMC)",
     "saveButton": "Guardar Cambios",
     "savingButton": "Guardando...",
     "progressChartTitle": "Gráfico de Progreso de Peso",
@@ -277,11 +283,14 @@
     "targetValueLabel": "Valor Objetivo",
     "targetValuePlaceholder": "ej: 70 kg, 10 km, 15% grasa corporal...",
     "targetDateLabel": "Fecha Objetivo",
-    "trainerMealPlanTitle": "Plan de comidas de tu entrenador para hoy",
-    "trainerMealPlanDesc": "Comidas recomendadas para ti hoy por tu entrenador",
+    "noTrainerMealsToday": "No hay comidas asignadas por el entrenador para hoy.",
+    "trainerMealPlanTitle": "Plan de comidas del entrenador",
+    "trainerMealPlanDesc": "Estas son las comidas recomendadas por tu entrenador para hoy",
     "mealType": {
       "breakfast": "Desayuno",
+      "mid_morning": "Media mañana",
       "lunch": "Almuerzo",
+      "mid_afternoon": "Media tarde",
       "dinner": "Cena"
     },
     "caloriesLabel": "Calorías estimadas",
@@ -539,7 +548,10 @@
     "toastNetworkErrorDesc": "No se pudo guardar el plan de nutrición. Inténtalo de nuevo.",
     "editRoutineTitle": "Editar rutina",
     "updateRoutineButton": "Actualizar rutina",
-    "selectNutritionDateLabel": "Seleccionar fecha del plan de nutrición"
+    "selectNutritionDateLabel": "Seleccionar fecha del plan de nutrición",
+    "endDateLabel": "Fecha de fin",
+    "mealTypeMidMorning": "Media mañana",
+    "mealTypeMidAfternoon": "Media tarde"
   },
   "ProgressOverviewChart": {
     "weightLabel": "Peso (kg)"

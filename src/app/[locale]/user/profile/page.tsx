@@ -14,7 +14,7 @@ import { CalendarIcon, Save, Activity, Loader2 } from "lucide-react";
 import { format, parseISO, isValid } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
-import { UserData, fetchCombinedProfile, saveUserProfile } from '@/lib/api'; // Ensure UserData is correctly typed
+import { UserData, fetchCombinedProfile, saveUserProfile, saveMetrics } from '@/lib/api'; // Ensure UserData is correctly typed
 import { useTranslations } from 'next-intl';
 
 export default function UserProfilePage() {
@@ -110,34 +110,55 @@ export default function UserProfilePage() {
     e.preventDefault();
     if (!profile) return;
     setIsSaving(true);
+
     try {
-      // Prepare only the fields that saveUserProfile expects (subset of UserData)
-      const profileToSave: Partial<UserData> = {
+      const profileResult = await saveUserProfile({
         name: profile.name,
         date_of_birth: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null,
-        trainingLevel: profile.trainingLevel || null, // Send null if empty string
+        trainingLevel: profile.trainingLevel || null,
         state: profile.state,
         country: profile.country,
-        // Include measurement fields if they are part of UserData for saving
-        metrics: {
-          weight: typeof profile.metrics?.weight === 'number' ? profile.metrics.weight : null,
-          height: typeof profile.metrics?.height === 'number' ? profile.metrics.height : null,
-          body_fat: typeof profile.metrics?.body_fat === 'number' ? profile.metrics.body_fat : null,
-          bmi: typeof profile.metrics?.bmi === 'number' ? profile.metrics.bmi : null,
-          muscle_mass: typeof profile.metrics?.muscle_mass === 'number' ? profile.metrics.muscle_mass : null,
-          waist_circumference: typeof profile.metrics?.waist_circumference === 'number' ? profile.metrics.waist_circumference : null,
-        },
+      });
 
-      };
-      const result = await saveUserProfile(profileToSave);
-      if (result.success) {
+      const metricsToSave: { type: string; value: number }[] = [];
+
+      if (typeof profile.metrics?.weight === 'number') {
+        metricsToSave.push({ type: 'weight', value: profile.metrics.weight });
+      }
+      if (typeof profile.metrics?.height === 'number') {
+        metricsToSave.push({ type: 'height', value: profile.metrics.height });
+      }
+      if (typeof profile.metrics?.body_fat === 'number') {
+        metricsToSave.push({ type: 'body_fat', value: profile.metrics.body_fat });
+      }
+      if (typeof profile.metrics?.muscle_mass === 'number') {
+        metricsToSave.push({ type: 'muscle_mass', value: profile.metrics.muscle_mass });
+      }
+      if (typeof profile.metrics?.waist_circumference === 'number') {
+        metricsToSave.push({ type: 'waist_circumference', value: profile.metrics.waist_circumference });
+      }
+      if (typeof profile.metrics?.bmi === 'number') {
+        metricsToSave.push({ type: 'bmi', value: profile.metrics.bmi });
+      }
+
+      // 3. Save metrics
+      const metricResult = await saveMetrics(metricsToSave);
+
+      if (profileResult.success && metricResult.success) {
         toast({ title: t('toastProfileUpdatedTitle'), description: t('toastProfileUpdatedDesc') });
       } else {
-        toast({ title: t('toastUpdateFailedTitle'), description: t('toastUpdateFailedDesc'), variant: "destructive" });
+        toast({
+          title: t('toastUpdateFailedTitle'),
+          description: t('toastUpdateFailedDesc'),
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
-      console.error("Failed to save profile", error);
-      toast({ title: t('toastErrorTitle'), description: error.message || t('toastErrorDesc'), variant: "destructive" });
+      toast({
+        title: t('toastErrorTitle'),
+        description: error.message || t('toastErrorDesc'),
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }

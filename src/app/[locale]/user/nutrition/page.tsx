@@ -470,17 +470,19 @@ export default function NutritionPage() {
       </Card>
 
       {/* Show meals set by trainer */}
-      {trainerMeals.length > 0 && (
-        <Card className="shadow-sm bg-secondary/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-700">
-              <Salad className="h-5 w-5" />
-              {t('trainerMealPlanTitle')}
-            </CardTitle>
-            <CardDescription>{t('trainerMealPlanDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {trainerMeals.map((meal, index) => (
+      <Card className="shadow-sm bg-secondary/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-700">
+            <Salad className="h-5 w-5" />
+            {t('trainerMealPlanTitle')}
+          </CardTitle>
+          <CardDescription>{t('trainerMealPlanDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {trainerMeals.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">{t('noTrainerMealsToday')}</p>
+          ) : (
+            trainerMeals.map((meal, index) => (
               <div key={index} className="border p-3 rounded-md">
                 <div className="flex justify-between items-center">
                   <p className="font-semibold capitalize">{t(`mealType.${meal.meal_type}`)}</p>
@@ -488,13 +490,16 @@ export default function NutritionPage() {
                 </div>
                 <p>{meal.description}</p>
                 {meal.calories && (
-                  <p className="text-sm text-muted-foreground">{t('caloriesLabel')}: {meal.calories}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('caloriesLabel')}: {meal.calories}
+                  </p>
                 )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          )}
+        </CardContent>
+      </Card>
+
 
       <Card className="shadow-sm bg-secondary">
           <CardHeader>

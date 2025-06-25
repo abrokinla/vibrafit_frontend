@@ -412,7 +412,9 @@ export default function UserDashboardPage() {
             <Scale className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.metrics.weight ? `${user.metrics.weight} kg` : '-- kg'}</div>
+            <div className="text-2xl font-bold">
+              {user?.metrics?.weight ? `${user.metrics.weight} kg` : '-- kg'}
+            </div>
             <Link href="/user/measurements" passHref>
                 <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('updateInMeasurementsLink')}</Button>
             </Link>

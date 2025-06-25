@@ -31,10 +31,9 @@ export default function TrainerRoutinesPage() {
   const [nutritionItems, setNutritionItems] = useState<Meal[]>([
     { id: undefined, nutrition_plan: undefined, meal_type: "breakfast", time: "", description: "", calories: "" },
   ]);
-  const [nutritionDate, setNutritionDate] = useState(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return today;
-  });
+  const today = new Date().toISOString().split("T")[0];
+  const [nutritionStartDate, setnutritionStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
 
   useEffect(() => {
@@ -68,13 +67,13 @@ export default function TrainerRoutinesPage() {
         const rawData = await res.json();
         if (!Array.isArray(rawData)) { 
             console.error("API did not return an array for routines:", rawData); 
-            setRoutines([]); // Set to empty array on error
+            setRoutines([]);
             return; 
         }
         const mappedRoutines: RoutinePlan[] = rawData.map((routine: any) => ({
           planId: routine.planId, routineName: routine.routineName, startDate: routine.startDate,
           frequency: routine.frequency, 
-          exercises: Array.isArray(routine.exercises) ? routine.exercises : [], // Ensure exercises is an array
+          exercises: Array.isArray(routine.exercises) ? routine.exercises : [],
           client: routine.client,
           trainer: routine.trainer, 
           nutrition: routine.nutrition,
@@ -82,7 +81,7 @@ export default function TrainerRoutinesPage() {
         setRoutines(mappedRoutines);
       } catch (error) { 
         console.error("Error fetching routines:", error); 
-        setRoutines([]); // Set to empty array on error
+        setRoutines([]);
         toast({ title: t('toastErrorLoadRoutines'), variant: "destructive" });
       }
     };
@@ -291,7 +290,8 @@ export default function TrainerRoutinesPage() {
   const payload: Omit<NutritionPlan, 'id'> = {
     plan: planIdForNutrition,
     notes: "",
-    date: nutritionDate,
+    start_date: nutritionStartDate,
+    end_date: endDate,
     meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal),
   };
 
@@ -464,13 +464,28 @@ export default function TrainerRoutinesPage() {
                   <SelectContent>{clients.map((client) => (<SelectItem key={client.id} value={String(client.id)}><div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{client.name}</div></SelectItem>))}</SelectContent>
                 </Select>
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="nutrition-date">{t('selectNutritionDateLabel') || "Select Date"}</Label>
+             {/* Start Date */}
+            <div className="space-y-2">
+              <Label htmlFor="nutrition-start-date">{t('startDateLabel') || "Start Date"}</Label>
               <Input
-                id="nutrition-date"
+                id="nutrition-start-date"
                 type="date"
-                value={nutritionDate}
-                onChange={(e) => setNutritionDate(e.target.value)}
+                value={nutritionStartDate}
+                onChange={(e) => setnutritionStartDate(e.target.value)}
+                disabled={isSaving}
+                required
+              />
+            </div>
+
+            {/* End Date */}
+            <div className="space-y-2">
+              <Label htmlFor="nutrition-end-date">{t('endDateLabel') || "End Date"}</Label>
+              <Input
+                id="nutrition-end-date"
+                type="date"
+                min={nutritionStartDate}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
                 disabled={isSaving}
                 required
               />
@@ -512,9 +527,7 @@ export default function TrainerRoutinesPage() {
                     <Label htmlFor={`meal-type-${index}`}>{t('mealTypeLabel')}</Label>
                     <Select
                       value={item.meal_type}
-                      onValueChange={(val: 'breakfast' | 'lunch' | 'dinner') =>
-                        handleChangeMeal(index, 'meal_type', val)
-                      }
+                      onValueChange={(val: Meal["meal_type"]) => handleChangeMeal(index, 'meal_type', val)}
                       disabled={isSaving}
                     >
                       <SelectTrigger id={`meal-type-${index}`}>
@@ -522,7 +535,9 @@ export default function TrainerRoutinesPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="breakfast">{t('mealTypeBreakfast')}</SelectItem>
+                        <SelectItem value="mid_morning">{t('mealTypeMidMorning')}</SelectItem>
                         <SelectItem value="lunch">{t('mealTypeLunch')}</SelectItem>
+                        <SelectItem value="mid_afternoon">{t('mealTypeMidAfternoon')}</SelectItem>
                         <SelectItem value="dinner">{t('mealTypeDinner')}</SelectItem>
                       </SelectContent>
                     </Select>
