@@ -243,6 +243,12 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
   }
 
   const userData = await userRes.json();
+  const metricsArray = userData.metrics ?? [];
+  const metricsObject: UserData['metrics'] = {};
+
+  for (const metric of metricsArray) {
+    metricsObject[metric.type] = metric.value;
+  }
 
   // Only fetch trainer data if role is 'trainer'
   let trainerData = {};
@@ -260,9 +266,9 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
       console.warn("Trainer profile not found or error fetching it.");
     }
   }
-
   return {
     ...userData,
+    metrics: metricsObject,
     ...trainerData,
   };
 }
