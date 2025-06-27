@@ -25,63 +25,44 @@ interface CompletedExercise {
   notes?: string;
 }
 
-export async function fetchTodayAssignedRoutine(token: string): Promise<DailyUserRoutine | null> {
-  const todayStr = formatDate(new Date(), 'yyyy-MM-dd');
+export async function fetchTodayAssignedRoutines(token: string): Promise<DailyUserRoutine[]> {
+  const today = new Date();
+  const todayStr = formatDate(today, 'yyyy-MM-dd');
 
-  try {
-    const logsRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${todayStr}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const plansRes = await fetch('https://vibrafit.onrender.com/api/plans/', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const logsRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${todayStr}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-    if (!logsRes.ok || !plansRes.ok) {
-      throw new Error("Failed to fetch today's logs or plans");
-    }
+  const plansRes = await fetch('https://vibrafit.onrender.com/api/plans/', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-    const logs = await logsRes.json();
-    const plans = await plansRes.json();
+  if (!logsRes.ok || !plansRes.ok) {
+    throw new Error("Failed to fetch today's logs or plans");
+  }
 
-    const todayLog = logs.find((log: any) => log.date === todayStr);
+  const logs = await logsRes.json();
+  const plans = await plansRes.json();
 
-    if (todayLog) {
-      const matchingPlan = plans.find((plan: any) => plan.planId === todayLog.plan);
-      if (!matchingPlan) return null;
+  const result: DailyUserRoutine[] = [];
 
-      return {
-        planId: matchingPlan.planId,
-        date: new Date(todayLog.date),
-        routineName: matchingPlan.routineName,
-        exercises: matchingPlan.exercises.map((ex: any, index: number) => ({
-          id: `ex-${matchingPlan.planId}-${index}`,
-          exercise_id: index,
-          name: ex.name,
-          sets: parseInt(ex.sets, 10) || 0,
-          reps: parseInt(ex.reps, 10) || 0,
-          unit: ex.unit || 'reps',
-          notes: ex.notes || '',
-          videoUrl: ex.video_url || '',
-        })),
-        trainerNotes: todayLog.notes || '',
-      };
-    }
+  for (const plan of plans) {
+    const startDate = new Date(plan.startDate);
+    const isTodayPlan =
+      (plan.frequency === 'daily' && startDate <= today) ||
+      (plan.frequency === 'weekly' && startDate.getDay() === today.getDay() && startDate <= today) ||
+      (plan.startDate === todayStr);
 
-    const todayDate = new Date();
+    if (!isTodayPlan) continue;
 
-    const todayPlan = plans.find((plan: any) => {
-      const planStartDate = new Date(plan.startDate);
-      return plan.frequency === 'daily' && planStartDate <= todayDate;
-    });
+    const todayLog = logs.find((log: any) => log.plan === plan.planId && log.date === todayStr);
 
-    if (!todayPlan) return null;
-
-    return {
-      planId: todayPlan.planId,
-      date: new Date(todayPlan.startDate),
-      routineName: todayPlan.routineName,
-      exercises: todayPlan.exercises.map((ex: any, index: number) => ({
-        id: `ex-${todayPlan.planId}-${index}`,
+    result.push({
+      planId: plan.planId,
+      date: today,
+      routineName: plan.routineName,
+      exercises: plan.exercises.map((ex: any, index: number) => ({
+        id: `ex-${plan.planId}-${index}`,
         exercise_id: index,
         name: ex.name,
         sets: parseInt(ex.sets, 10) || 0,
@@ -90,12 +71,11 @@ export async function fetchTodayAssignedRoutine(token: string): Promise<DailyUse
         notes: ex.notes || '',
         videoUrl: ex.video_url || '',
       })),
-      trainerNotes: '',
-    };
-  } catch (err) {
-    console.error("Error fetching today's assigned routine:", err);
-    return null;
+      trainerNotes: todayLog?.notes || '',
+    });
   }
+
+  return result;
 }
 
 export async function fetchTodayWorkoutLog(token: string, planId: number | undefined): Promise<Set<string>> {
@@ -134,68 +114,68 @@ export async function fetchTodayWorkoutLog(token: string, planId: number | undef
 }
 
 export async function saveWorkoutProgress(
-  token: string,
-  planId: number,
-  completedExerciseNames: string[],
-  allExercises: Exercise[],
-  notes: string
-): Promise<{ success: boolean; data?: any }> {
-  const todayStr = formatDate(new Date(), 'yyyy-MM-dd');
+    token: string,
+    planId: number,
+    completedExerciseNames: string[],
+    allExercises: Exercise[],
+    notes: string
+  ): Promise<{ success: boolean; data?: any }> {
+    const todayStr = formatDate(new Date(), 'yyyy-MM-dd');
 
-  let existingLogId: number | null = null;
-  try {
-    const logsRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${todayStr}&plan_id=${planId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (logsRes.ok) {
-      const logs = await logsRes.json();
-      const todayLog = logs.find((log: any) => log.plan === planId);
-      if (todayLog) existingLogId = todayLog.id;
+    let existingLogId: number | null = null;
+    try {
+      const logsRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${todayStr}&plan_id=${planId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (logsRes.ok) {
+        const logs = await logsRes.json();
+        const todayLog = logs.find((log: any) => log.plan === planId);
+        if (todayLog) existingLogId = todayLog.id;
+      }
+    } catch (e) {
+      console.warn("Could not check for existing daily log:", e);
     }
-  } catch (e) {
-    console.warn("Could not check for existing daily log:", e);
+
+    const completedExercises = allExercises.filter(ex =>
+      completedExerciseNames.includes(ex.name)
+    ).map(ex => ({
+      name: ex.name,
+      sets: String(ex.sets),
+      reps: String(ex.reps),
+      unit: ex.unit,
+      notes: ex.notes || '',
+    }));
+
+    const method = existingLogId ? 'PATCH' : 'POST';
+    const url = existingLogId
+      ? `https://vibrafit.onrender.com/api/daily-logs/${existingLogId}/`
+      : 'https://vibrafit.onrender.com/api/daily-logs/';
+
+    const payload = {
+      plan: planId,
+      date: todayStr,
+      actual_exercise: completedExercises,
+      completion_percentage: Math.round((completedExercises.length / allExercises.length) * 100),
+      notes: notes,
+    };
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Failed to save workout progress:", errorData);
+      throw new Error(errorData.detail || `Failed to save progress (${response.status})`);
+    }
+
+    return { success: true, data: await response.json() };
   }
-
-  const completedExercises = allExercises.filter(ex =>
-    completedExerciseNames.includes(ex.name)
-  ).map(ex => ({
-    name: ex.name,
-    sets: String(ex.sets),
-    reps: String(ex.reps),
-    unit: ex.unit,
-    notes: ex.notes || '',
-  }));
-
-  const method = existingLogId ? 'PATCH' : 'POST';
-  const url = existingLogId
-    ? `https://vibrafit.onrender.com/api/daily-logs/${existingLogId}/`
-    : 'https://vibrafit.onrender.com/api/daily-logs/';
-
-  const payload = {
-    plan: planId,
-    date: todayStr,
-    actual_exercise: completedExercises,
-    completion_percentage: Math.round((completedExercises.length / allExercises.length) * 100),
-    notes: notes,
-  };
-
-  const response = await fetch(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error("Failed to save workout progress:", errorData);
-    throw new Error(errorData.detail || `Failed to save progress (${response.status})`);
-  }
-
-  return { success: true, data: await response.json() };
-}
 
 export async function addAdHocWorkout(token: string, description: string, date: string) {
   const response = await fetch('https://vibrafit.onrender.com/api/ad-hoc-workouts/', {
@@ -241,11 +221,12 @@ export default function WorkoutsPage() {
   const [deletingAdHocId, setDeletingAdHocId] = useState<number | null>(null);
 
   const [dailyRoutine, setDailyRoutine] = useState<DailyUserRoutine | null>(null);
-  const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
-  const [userNotes, setUserNotes] = useState('');
+  const [completedExercisesMap, setCompletedExercisesMap] = useState<Record<number, Set<string>>>({});
+  const [userNotesMap, setUserNotesMap] = useState<Record<number, string>>({});
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(true);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
-  
+  const [multipleRoutines, setMultipleRoutines] = useState<DailyUserRoutine[]>([]);
+
   const router = useRouter();
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
 
@@ -261,24 +242,35 @@ export default function WorkoutsPage() {
 
     const loadRoutineData = async () => {
       try {
-        const routine = await fetchTodayAssignedRoutine(token);
-        setDailyRoutine(routine);
-        if (routine && routine.planId) {
-          const completed = await fetchTodayWorkoutLog(token, routine.planId);
-          setCompletedExercises(completed);
-          // Fetch notes for today's log if routine exists
-          const todayLogRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${formatDate(new Date(), 'yyyy-MM-dd')}&plan_id=${routine.planId}`, {
+        const routines = await fetchTodayAssignedRoutines(token);
+        setMultipleRoutines(routines);
+
+        if (routines.length > 0) {
+          const defaultRoutine = routines[0];
+          setDailyRoutine(defaultRoutine);
+
+          const completed = await fetchTodayWorkoutLog(token, defaultRoutine.planId);
+          setCompletedExercisesMap(prev => ({ ...prev, [defaultRoutine.planId]: completed }));
+
+          const todayLogRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${formatDate(new Date(), 'yyyy-MM-dd')}&plan_id=${defaultRoutine.planId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+
           if (todayLogRes.ok) {
             const logs = await todayLogRes.json();
-            const currentLog = logs.find((l: DailyLog) => l.plan === routine.planId);
-            if (currentLog) setUserNotes(currentLog.notes || '');
+            const currentLog = logs.find((l: DailyLog) => l.plan === defaultRoutine.planId);
+            if (currentLog) {
+              setUserNotesMap(prev => ({ ...prev, [defaultRoutine.planId]: currentLog.notes || '' }));
+            }
           }
         }
       } catch (err: any) {
         console.error("Error loading routine data:", err);
-        toast({title: t('toastErrorGeneric'), description: err.message || t('toastErrorLoadRoutine'), variant: "destructive"})
+        toast({
+          title: t('toastErrorGeneric'),
+          description: err.message || t('toastErrorLoadRoutine'),
+          variant: "destructive"
+        });
       } finally {
         setIsLoadingRoutine(false);
       }
@@ -306,53 +298,66 @@ export default function WorkoutsPage() {
       }
     };
 
-    
     loadRoutineData();
     loadAdHocData();
-
   }, [token, router, toast, t]);
 
-  const handleToggleExerciseComplete = (exerciseName: string) => {
-    setCompletedExercises(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(exerciseName)) {
-        newSet.delete(exerciseName);
-      } else {
-        newSet.add(exerciseName);
-      }
-      return newSet;
+
+  function handleToggleExerciseComplete(planId: number, name: string) {
+    setCompletedExercisesMap(prev => {
+      const set = new Set(prev[planId] || []);
+      set.has(name) ? set.delete(name) : set.add(name);
+      return { ...prev, [planId]: set };
     });
-  };
+  }
+
+  function handleNoteChange(planId: number, note: string) {
+    setUserNotesMap(prev => ({ ...prev, [planId]: note }));
+  }
 
   const routineProgress = useMemo(() => {
     if (!dailyRoutine || dailyRoutine.exercises.length === 0) return 0;
-    return (completedExercises.size / dailyRoutine.exercises.length) * 100;
-  }, [dailyRoutine, completedExercises]);
+    const completed = completedExercisesMap[dailyRoutine.planId] || new Set();
+    return (completed.size / dailyRoutine.exercises.length) * 100;
+  }, [dailyRoutine, completedExercisesMap]);
 
-  const handleSaveRoutineProgress = async () => {
-    if (!dailyRoutine || !dailyRoutine.planId) {
-        toast({ title: t('toastErrorGeneric'), description: t('toastErrorNoRoutineToSave'), variant: "destructive" }); return;
-    }
+  const handleSaveRoutineProgress = async (planId: number) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) { toast({ title: t('toastNotLoggedIn'), description: t('toastNotLoggedInDesc'), variant: "destructive" }); return; }
-    
+    if (!token) {
+      toast({ title: t('toastNotLoggedIn'), description: t('toastNotLoggedInDesc'), variant: "destructive" });
+      return;
+    }
+
+    const routine = multipleRoutines.find(r => r.planId === planId);
+    if (!routine) {
+      toast({ title: t('toastErrorGeneric'), description: t('toastErrorNoRoutineToSave'), variant: "destructive" });
+      return;
+    }
+
+    const completed = completedExercisesMap[planId] || new Set();
+    const notes = userNotesMap[planId] || '';
+
     setIsSavingProgress(true);
     try {
       const result = await saveWorkoutProgress(
         token,
-        dailyRoutine.planId,
-        Array.from(completedExercises),
-        dailyRoutine.exercises,
-        userNotes
+        planId,
+        Array.from(completed),
+        routine.exercises,
+        notes
       );
-      if (result.success) toast({ title: t('toastProgressSaved'), description: t('toastProgressSavedDesc') });
-      else toast({ title: t('toastSaveFailed'), description: (result as any).error?.detail || t('toastSaveFailedDesc'), variant: "destructive" });
+      if (result.success) {
+        toast({ title: t('toastProgressSaved'), description: t('toastProgressSavedDesc') });
+      } else {
+        toast({ title: t('toastSaveFailed'), description: (result as any).error?.detail || t('toastSaveFailedDesc'), variant: "destructive" });
+      }
     } catch (error: any) {
       toast({ title: t('toastErrorGeneric'), description: error.message || t('toastErrorGenericDesc'), variant: "destructive" });
     } finally {
       setIsSavingProgress(false);
     }
   };
+
 
   const handlePlayVideo = (videoUrl: string) => {
     window.open(videoUrl, '_blank'); // Open video in new tab
@@ -414,8 +419,6 @@ export default function WorkoutsPage() {
     }
   };
 
-
-
   const handleDeleteAdHocWorkout = async (id: number) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!token) { toast({ title: t('toastNotLoggedIn'), description: t('toastNotLoggedInDesc'), variant: "destructive" }); return; }
@@ -436,60 +439,121 @@ export default function WorkoutsPage() {
       <h1 className="text-3xl font-bold">{t('title')}</h1>
       <p className="text-muted-foreground">{t('description')}</p>
       
-      <Card className="shadow-lg border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <Dumbbell className="h-6 w-6" />
-            {dailyRoutine?.routineName
-              ? t('todaysRoutineTitle', { 
-                  routineName: dailyRoutine.routineName,
-                  date: formatDate(dailyRoutine.date, 'PPP', { locale: es }) 
-                })
-              : t('todaysRoutineNoNameTitle')}
-          </CardTitle>
-          {dailyRoutine?.trainerNotes && ( <CardDescription className="pt-1 text-sm italic text-blue-600 dark:text-blue-400">{t('trainerNotesLabel')}: {dailyRoutine.trainerNotes}</CardDescription> )}
-        </CardHeader>
-        <CardContent>
-          {isLoadingRoutine ? (
-            <div className="space-y-3 p-4">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>)}</div>
-          ) : dailyRoutine && dailyRoutine.exercises.length > 0 ? (
-            <div className="space-y-4">
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between items-center text-sm mb-1 font-medium">
-                    <span>{t('progressLabel', { completed: completedExercises.size, total: dailyRoutine.exercises.length })}</span>
-                    <span>{Math.round(routineProgress)}%</span></div>
-                <Progress value={routineProgress} className="w-full h-3 [&>div]:bg-green-500" /></div>
-              <ul className="space-y-3">
-                {dailyRoutine.exercises.map((exercise) => (
-                  <li key={exercise.id} className="flex items-center justify-between p-3.5 bg-card border rounded-lg hover:bg-secondary/30 transition-colors shadow-sm">
-                    <div className="flex items-start gap-3 flex-1">
-                      <Checkbox
-                        id={exercise.id}
-                        checked={completedExercises.has(exercise.name)}
-                        onCheckedChange={() => handleToggleExerciseComplete(exercise.name)}
-                        aria-label={t('markExerciseCompleteLabel', { exerciseName: exercise.name})}
-                        disabled={isSavingProgress} className="h-5 w-5 mt-1" />
-                      <div className="flex-1">
-                        <label htmlFor={exercise.id} className="font-medium cursor-pointer block">{exercise.name}</label>
-                        <p className="text-xs text-muted-foreground">{exercise.sets} sets &times; {exercise.reps} {exercise.unit}</p>
-                        {exercise.notes && <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">{t('exerciseNotesLabel')}: {exercise.notes}</p>}</div></div>
-                    <div className="flex items-center gap-2">
-                        {exercise.videoUrl && (<Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handlePlayVideo(exercise.videoUrl!)} aria-label={t('videoLinkLabel', {exerciseName: exercise.name})}>
-                                <PlayCircle className="h-4 w-4" /></Button>)}
-                        {completedExercises.has(exercise.id) && <CheckSquare className="h-5 w-5 text-green-500" />}</div></li>))}</ul>
-              <div className="mt-6 space-y-2">
-                <Label htmlFor="user-notes" className="font-medium">{t('myWorkoutNotesLabel')}</Label>
-                <Textarea id="user-notes" placeholder={t('myWorkoutNotesPlaceholder')} value={userNotes} onChange={(e) => setUserNotes(e.target.value)} rows={3} disabled={isSavingProgress}/>
-              </div>
-            </div>
-          ) : ( <p className="text-muted-foreground text-center py-8 text-lg" dangerouslySetInnerHTML={{ __html: t.raw('noRoutineAssigned') }} /> )}
-        </CardContent>
-        {dailyRoutine && dailyRoutine.exercises.length > 0 && (
-            <CardFooter className="flex justify-end border-t pt-4">
-                <Button onClick={handleSaveRoutineProgress} disabled={isSavingProgress || isLoadingRoutine} size="lg">
-                {isSavingProgress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                {isSavingProgress ? t('savingProgressButton') : t('saveProgressButton')}</Button></CardFooter>)}
-      </Card>
+      {isLoadingRoutine ? (
+        <div className="space-y-3 p-4">{[...Array(3)].map((_, i) => (
+          <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
+        ))}</div>
+      ) : multipleRoutines.length > 0 ? (
+        multipleRoutines.map((routine) => {
+          const completed = completedExercisesMap[routine.planId] || new Set();
+          const progress = Math.round((completed.size / routine.exercises.length) * 100);
+          const userNotes = userNotesMap[routine.planId] || '';
+
+          return (
+            <Card key={routine.planId} className="shadow-lg border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Dumbbell className="h-6 w-6" />
+                  {t('todaysRoutineTitle', {
+                    routineName: routine.routineName ?? '',
+                    date: formatDate(routine.date, 'PPP', { locale: es }),
+                  })}
+                </CardTitle>
+                {routine.trainerNotes && (
+                  <CardDescription className="pt-1 text-sm italic text-blue-600 dark:text-blue-400">
+                    {t('trainerNotesLabel')}: {routine.trainerNotes}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between items-center text-sm mb-1 font-medium">
+                      <span>{t('progressLabel', { completed: completed.size, total: routine.exercises.length })}</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="w-full h-3 [&>div]:bg-green-500" />
+                  </div>
+
+                  <ul className="space-y-3">
+                    {routine.exercises.map((exercise) => (
+                      <li key={exercise.id} className="flex items-center justify-between p-3.5 bg-card border rounded-lg hover:bg-secondary/30 transition-colors shadow-sm">
+                        <div className="flex items-start gap-3 flex-1">
+                          <Checkbox
+                            id={`${routine.planId}-${exercise.id}`}
+                            checked={completed.has(exercise.name)}
+                            onCheckedChange={() => handleToggleExerciseComplete(routine.planId, exercise.name)}
+                            aria-label={t('markExerciseCompleteLabel', { exerciseName: exercise.name })}
+                            disabled={isSavingProgress}
+                            className="h-5 w-5 mt-1"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor={`${routine.planId}-${exercise.id}`} className="font-medium cursor-pointer block">
+                              {exercise.name}
+                            </label>
+                            <p className="text-xs text-muted-foreground">{exercise.sets} sets × {exercise.reps} {exercise.unit}</p>
+                            {exercise.notes && (
+                              <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
+                                {t('exerciseNotesLabel')}: {exercise.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {exercise.videoUrl && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handlePlayVideo(exercise.videoUrl!)}
+                              aria-label={t('videoLinkLabel', { exerciseName: exercise.name })}
+                            >
+                              <PlayCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {completed.has(exercise.name) && <CheckSquare className="h-5 w-5 text-green-500" />}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-6 space-y-2">
+                    <Label htmlFor={`user-notes-${routine.planId}`} className="font-medium">
+                      {t('myWorkoutNotesLabel')}
+                    </Label>
+                    <Textarea
+                      id={`user-notes-${routine.planId}`}
+                      placeholder={t('myWorkoutNotesPlaceholder')}
+                      value={userNotes}
+                      onChange={(e) => handleNoteChange(routine.planId, e.target.value)}
+                      rows={3}
+                      disabled={isSavingProgress}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+
+              <CardFooter className="flex justify-end border-t pt-4">
+                <Button
+                  onClick={() => handleSaveRoutineProgress(routine.planId)}
+                  disabled={isSavingProgress || isLoadingRoutine}
+                  size="lg"
+                >
+                  {isSavingProgress ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  {isSavingProgress ? t('savingProgressButton') : t('saveProgressButton')}
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })
+      ) : (
+        <p className="text-muted-foreground text-center py-8 text-lg" dangerouslySetInnerHTML={{ __html: t.raw('noRoutineAssigned') }} />
+      )}
+
 
       <Card className="shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><PlusCircle className="h-5 w-5 text-primary" /> {t('logAdHocTitle')}</CardTitle>

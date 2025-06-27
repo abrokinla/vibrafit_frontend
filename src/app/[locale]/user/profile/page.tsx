@@ -140,8 +140,6 @@ export default function UserProfilePage() {
       if (typeof profile.metrics?.bmi === 'number') {
         metricsToSave.push({ type: 'bmi', value: profile.metrics.bmi });
       }
-
-      // 3. Save metrics
       const metricResult = await saveMetrics(metricsToSave);
 
       if (profileResult.success && metricResult.success) {
