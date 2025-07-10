@@ -1,8 +1,8 @@
-
+// src/components/user/user-sidebar-content.tsx
 'use client';
 
 import { Link, useRouter, usePathname } from '@/navigation';
-import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload, Settings, Search } from 'lucide-react'; 
+import { LayoutDashboard, Scale, Dumbbell, Apple, LogOut, User, Upload, Settings, Search, MessageSquare, Users } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,9 +37,11 @@ export default function UserSidebarContent() {
 
   const navItems = [
     { href: '/user/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/timeline', label: t('timeline'), icon: Users },
     { href: '/user/measurements', label: t('measurements'), icon: Scale },
     { href: '/user/workouts', label: t('workouts'), icon: Dumbbell },
     { href: '/user/nutrition', label: t('nutritionGoals'), icon: Apple },
+    { href: '/user/messages', label: t('messages'), icon: MessageSquare },
     { href: '/user/find-trainer', label: t('findTrainer'), icon: Search }, 
     { href: '/user/profile', label: t('myProfile'), icon: User },
   ];
@@ -59,11 +61,6 @@ export default function UserSidebarContent() {
           return;
         }
         console.error('Failed to load sidebar user:', err);
-        // toast({ // Toast is already handled by the page if user data fails
-        //   title: 'Error',
-        //   description: 'Could not load user info.',
-        //   variant: 'destructive',
-        // });
       }
     };
     load();
@@ -192,12 +189,12 @@ export default function UserSidebarContent() {
             <SidebarMenuItem key={item.href}>
               <Link href={item.href as any}>
                 <SidebarMenuButton
-                  variant={pathname === item.href ? 'secondary' : 'ghost'}
+                  variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
                   className={cn(
                     'w-full justify-start',
-                    pathname === item.href && 'bg-primary/10 text-primary font-semibold'
+                    pathname.startsWith(item.href) && 'bg-primary/10 text-primary font-semibold'
                   )}
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href)}
                   tooltip={{ children: item.label, side: "right", align: "center" }}
                 >
                   <item.icon className="h-4 w-4" />
@@ -222,5 +219,3 @@ export default function UserSidebarContent() {
     </>
   );
 }
-
-    

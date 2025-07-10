@@ -227,7 +227,7 @@ export default function NutritionPage() {
         setMealHistory(prev => [result.newMeal!, ...prev]);
         setNewMealDescription('');
         setNewMealCalories('');
-        toast({ title: t('toastLoggedMealgedTitle'), description: t('toastLoggedMealgedDesc') });
+        toast({ title: t('toastMealLoggedTitle'), description: t('toastMealLoggedDesc') });
       } else {
         toast({ title: t('toastLogFailedTitle'), description: t('toastLogFailedDesc'), variant: "destructive" });
       }
@@ -528,6 +528,18 @@ export default function NutritionPage() {
             onChange={(e) => setNewMealDescription(e.target.value)}
             disabled={isSavingMeal}
           />
+
+          <div className="space-y-1">
+            <Label htmlFor="meal-calories">{t('caloriesOptionalLabel')}</Label>
+            <Input 
+              id="meal-calories"
+              type="number"
+              placeholder={t('caloriesPlaceholder')}
+              value={newMealCalories}
+              onChange={(e) => setNewMealCalories(e.target.value)}
+              disabled={isSavingMeal}
+            />
+          </div>
 
           <div className="space-y-1">
             <Label htmlFor="meal-calories">{t('caloriesOptionalLabel')}</Label>

@@ -105,3 +105,29 @@ export async function uploadProgressPhoto(
     return { success: false };
   }
 }
+
+export const uploadTimelineMedia = async (file: File): Promise<{ success: boolean; url?: string; resource_type?: 'image' | 'video', error?: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'vibrafit_unsigned');
+
+  try {
+    // Cloudinary can detect the resource type automatically, so we use the 'auto' upload endpoint.
+    const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dru9skos8/auto/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const cloudinaryData = await cloudinaryRes.json();
+
+    if (!cloudinaryRes.ok) {
+      console.error('Cloudinary error:', cloudinaryData);
+      return { success: false, error: cloudinaryData.error?.message || 'Failed to upload to Cloudinary.' };
+    }
+    
+    return { success: true, url: cloudinaryData.secure_url, resource_type: cloudinaryData.resource_type };
+  } catch (err) {
+    console.error('Upload exception:', err);
+    return { success: false, error: 'An unexpected error occurred during upload.' };
+  }
+};

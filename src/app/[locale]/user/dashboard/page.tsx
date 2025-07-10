@@ -462,7 +462,7 @@ export default function UserDashboardPage() {
                   {t('youAreConnected')}
                 </p>
                 <Button asChild variant="link" size="sm" className="text-xs p-0 h-auto mt-1">
-                  <Link href={`/user/find-trainer/${user.trainerId}`}>
+                  <Link href={`/profile/${user.trainerId}` as any}>
                     {t('viewTrainerProfileLink')}
                   </Link>
                 </Button>

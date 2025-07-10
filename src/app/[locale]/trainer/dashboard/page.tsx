@@ -1,19 +1,20 @@
-// src/app/[locale]/trainer/dashboard/page.tsx
 'use client';
 export const runtime = 'edge';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Activity, MessageSquare, ClipboardList } from "lucide-react";
+import { Users, Activity, MessageSquare, ClipboardList, BellRing } from "lucide-react";
 import { Link, useRouter } from '@/navigation';
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from 'react';
 import OnboardingModal from '@/components/trainer/onboarding-modal';
+import TrainerRecentActivityFeed from '@/components/trainer/TrainerRecentActivityFeed';
 import { useToast } from "@/hooks/use-toast";
-import { getUserData, UserData } from '@/lib/api';
+import { getUserData, UserData, fetchPendingSubscriptions, fetchConversations, fetchActiveClientCount } from '@/lib/api';
 import { useTranslations } from 'next-intl';
 
 export default function TrainerDashboardPage() {
   const t = useTranslations('TrainerDashboardPage');
+  const { toast } = useToast();
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -21,50 +22,54 @@ export default function TrainerDashboardPage() {
   const [trainerData, setTrainerData] = useState({
     clientCount: 0,
     unreadMessages: 0,
+    pendingActions: 0,
   });
-  const { toast } = useToast();
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadData = async () => {
       setIsLoadingUser(true);
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.push('/signin');
+        return;
+      }
+
       try {
-        const data = await getUserData();
-        setUser(data);
-        if (!data.is_onboarded) setShowOnboarding(true);
-        else setShowOnboarding(false);
+        const userData = await getUserData();
+        setUser(userData);
+        if (!userData.is_onboarded) setShowOnboarding(true);
+
+        // Fetch stats
+        const [pendingSubs, conversations, activeClientCount] = await Promise.all([
+          fetchPendingSubscriptions(),
+          fetchConversations(),
+          fetchActiveClientCount(),
+        ]);
+
+        const unreadMessages = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+
+        setTrainerData({
+          clientCount: activeClientCount,
+          unreadMessages,
+          pendingActions: pendingSubs.length,
+        });
       } catch (err: any) {
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
           localStorage.clear();
           router.push('/signin');
           return;
         }
-        toast({ title: t('errorLoadProfile'), variant: 'destructive' });
+        toast({ 
+          title: t('errorLoadProfile'), 
+          description: err.message || t('errorLoadProfileDescription'), 
+          variant: 'destructive' 
+        });
       } finally {
         setIsLoadingUser(false);
       }
     };
-    loadUser();
+    loadData();
   }, [router, toast, t]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const token = localStorage.getItem('accessToken');
-    fetch(`https://vibrafit.onrender.com/api/users/${user.id}/`, {
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    })
-      .then(res => { if (!res.ok) throw new Error('Could not load trainer details from user endpoint'); return res.json(); })
-      .then((userDataFromApi: UserData) => { // Assuming the user endpoint returns more than just clientCount/unreadMessages
-        // Placeholder: Assuming clientCount and unreadMessages are not directly on UserData
-        // This part needs to be adjusted based on actual API response for trainer-specific stats
-        // For now, setting to placeholders or fetching from a different endpoint if necessary
-        setTrainerData({ clientCount: 0, unreadMessages: 0 }); // Placeholder
-      })
-      .catch(err => {
-        console.error("Error fetching trainer-specific data:", err);
-        // Optionally set trainerData to defaults or show an error
-        setTrainerData({ clientCount: 0, unreadMessages: 0 }); // Fallback
-      });
-  }, [user]);
 
   const handleOnboardingClose = async () => {
     try {
@@ -72,13 +77,17 @@ export default function TrainerDashboardPage() {
       setUser(updatedUser);
       setShowOnboarding(!updatedUser.is_onboarded);
     } catch (error) {
-      toast({ title: t('refreshErrorToastTitle'), description: t('refreshErrorToastDescription'), variant: 'destructive' });
+      toast({ 
+        title: t('refreshErrorToastTitle'), 
+        description: t('refreshErrorToastDescription'), 
+        variant: 'destructive' 
+      });
     }
   };
 
   if (isLoadingUser || !user) return <Card className="shadow-sm p-4">{t('loadingUser')}</Card>;
-  
-  return (    
+
+  return (
     <div className="space-y-8">
       {showOnboarding && (
         <OnboardingModal isOpen={showOnboarding} onClose={handleOnboardingClose} userId={user.id.toString()} />
@@ -94,27 +103,29 @@ export default function TrainerDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{trainerData.clientCount}</div>
-            <p className="text-xs text-muted-foreground">{t('clientsFromLastMonth', { count: 2})}</p>
+            <p className="text-xs text-muted-foreground">{t('clientsFromLastMonth', { count: 0 })}</p>
           </CardContent>
         </Card>
-         <Card className="shadow-sm">
+        <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('unreadMessages')}</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{trainerData.unreadMessages}</div>
-             <p className="text-xs text-muted-foreground">{t('messagesRequireAttention')}</p>
+            <p className="text-xs text-muted-foreground">{t('messagesRequireAttention')}</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('pendingActions')}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <BellRing className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div> {/* Placeholder */}
-            <p className="text-xs text-muted-foreground">{t('pendingActionsExample')}</p>
+            <div className="text-2xl font-bold">{trainerData.pendingActions}</div>
+            <Link href="/trainer/requests" className="text-xs text-primary hover:underline">
+              {t('reviewRequestsLink')}
+            </Link>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
@@ -123,9 +134,9 @@ export default function TrainerDashboardPage() {
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             <p className="text-xs text-muted-foreground mb-2">{t('manageRoutinesDescription')}</p>
+            <p className="text-xs text-muted-foreground mb-2">{t('manageRoutinesDescription')}</p>
             <Link href="/trainer/routines" passHref>
-                <Button size="sm" className="w-full">{t('manageRoutinesButton')}</Button>
+              <Button size="sm" className="w-full">{t('manageRoutinesButton')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -137,7 +148,7 @@ export default function TrainerDashboardPage() {
           <CardDescription>{t('recentClientActivityDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-           <p className="text-muted-foreground text-center py-4">{t('noRecentClientActivity')}</p>
+          <TrainerRecentActivityFeed limit={5} />
         </CardContent>
       </Card>
 
@@ -147,7 +158,23 @@ export default function TrainerDashboardPage() {
           <CardDescription>{t('clientManagementDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-           <p className="text-muted-foreground text-center py-8">{t('clientManagementPlaceholder')}</p>
+          <p className="text-muted-foreground text-center py-8">{t('clientManagementPlaceholder')}</p>
+          {/* TODO: Implement client management section */}
+          {/* Suggestions:
+             - Fetch list of active clients using fetchActiveClients
+             - Display client cards with names, profile pictures, and links to profiles or routines
+             - Example structure:
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+               {clients.map(client => (
+                 <Card key={client.id}>
+                   <CardContent>
+                     <p>{client.name}</p>
+                     <Link href={`/trainer/clients/${client.id}`}>View Profile</Link>
+                   </CardContent>
+                 </Card>
+               ))}
+             </div>
+          */}
         </CardContent>
       </Card>
     </div>

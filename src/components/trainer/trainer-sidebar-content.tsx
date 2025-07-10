@@ -1,8 +1,8 @@
-
+// src/components/trainer/trainer-sidebar-content.tsx
 'use client';
 
 import { Link, useRouter, usePathname } from '@/navigation'; 
-import { LayoutDashboard, ClipboardList, User, LogOut, Upload } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, User, LogOut, Upload, MessageSquare, Users, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,7 +37,10 @@ export default function TrainerSidebarContent() {
 
   const navItems = [
     { href: '/trainer/dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/timeline', label: t('timeline'), icon: Users },
+    { href: '/trainer/requests', label: t('pendingRequests'), icon: BellRing },
     { href: '/trainer/routines', label: t('clientRoutines'), icon: ClipboardList },
+    { href: '/trainer/messages', label: t('messages'), icon: MessageSquare },
     { href: '/trainer/profile', label: t('myProfile'), icon: User },
   ];
 
@@ -56,7 +59,6 @@ export default function TrainerSidebarContent() {
           return;
         }
         console.error('Failed to load sidebar user:', err);
-        // Toast handled by page
       }
     };
     load();
@@ -184,12 +186,12 @@ export default function TrainerSidebarContent() {
             <SidebarMenuItem key={item.href}>
               <Link href={item.href as any}>
                 <SidebarMenuButton
-                  variant={pathname === item.href ? 'secondary' : 'ghost'}
+                  variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
                   className={cn(
                     'w-full justify-start',
-                    pathname === item.href && 'bg-primary/10 text-primary font-semibold'
+                    pathname.startsWith(item.href) && 'bg-primary/10 text-primary font-semibold'
                   )}
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href)}
                   tooltip={{ children: item.label, side: "right", align: "center" }}
                 >
                   <item.icon className="h-4 w-4" />
@@ -214,5 +216,3 @@ export default function TrainerSidebarContent() {
     </>
   );
 }
-
-    

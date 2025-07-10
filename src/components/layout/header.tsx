@@ -4,7 +4,7 @@
 import { Link, useRouter, usePathname } from '@/navigation'; // Use from new navigation config
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dumbbell } from 'lucide-react';
+import { Dumbbell, MessageSquare, Bell } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from 'next-intl';
 
@@ -12,12 +12,14 @@ export default function Header() {
   const t = useTranslations('Header');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [dashboardPath, setDashboardPath] = useState<string>('');
+  const [userRole, setUserRole] = useState<string | null>(null);
   const currentPathname = usePathname(); 
   const router = useRouter();
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
+    setUserRole(role);
 
     if (token) {
       setIsLoggedIn(true);
@@ -32,7 +34,7 @@ export default function Header() {
     } else {
       setIsLoggedIn(false);
     }
-  }, []);
+  }, [currentPathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -43,6 +45,8 @@ export default function Header() {
     setIsLoggedIn(false);
     router.push('/signin'); 
   };
+  
+  const messagesPath = userRole === 'trainer' ? '/trainer/messages' : '/user/messages';
 
   if (isLoggedIn === null) return null; 
 
@@ -53,11 +57,21 @@ export default function Header() {
           <Dumbbell className="h-6 w-6" />
           <span>{t('appName')}</span>
         </Link>
-        <nav className="flex items-center gap-2 md:gap-4">
+        <nav className="flex items-center gap-1 md:gap-2">
           {isLoggedIn ? (
             <>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href={messagesPath as any}>
+                  <MessageSquare />
+                  <span className="sr-only">{t('messagesButton')}</span>
+                </Link>
+              </Button>
+              <Button variant="ghost" size="icon">
+                <Bell />
+                <span className="sr-only">{t('notificationsButton')}</span>
+              </Button>
               <Link href={dashboardPath as any} passHref>
-                <Button variant="ghost">{t('dashboardButton')}</Button>
+                <Button variant="ghost" className="hidden sm:inline-flex">{t('dashboardButton')}</Button>
               </Link>
               <Button variant="outline" onClick={handleLogout}>{t('logoutButton')}</Button>
             </>

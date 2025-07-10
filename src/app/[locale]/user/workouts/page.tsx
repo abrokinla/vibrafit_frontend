@@ -1,21 +1,19 @@
-// src/app/[locale]/user/workouts/page.tsx
 'use client';
 export const runtime = 'edge';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dumbbell, CalendarDays, PlusCircle, Trash2, CheckSquare, RefreshCw, PlayCircle, Loader2 } from "lucide-react"; 
+import { Dumbbell, CalendarDays, PlusCircle, Trash2, Play, Loader2, TrendingUp, Scale, Apple } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
-import { format as formatDate, parseISO } from 'date-fns';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Progress } from '@/components/ui/progress';
+import { format as formatDate, parseISO, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { useRouter } from '@/navigation'; 
 import { useTranslations } from 'next-intl';
-import { DailyLog, Exercise, DailyUserRoutine, WorkoutLogEntry, AdHocWorkout } from '@/lib/api';
+import { DailyLog, Exercise, DailyUserRoutine, AdHocWorkout, UserData, getUserData, LoggedMeal, fetchDailyLogs, calculateLongestStreak } from '@/lib/api';
 import { es } from 'date-fns/locale';
+import WorkoutSessionModal from '@/components/user/workout-session-modal';
+import { cn } from '@/lib/utils';
 
 interface CompletedExercise {
   name: string;
@@ -25,9 +23,13 @@ interface CompletedExercise {
   notes?: string;
 }
 
+interface UserStats {
+  longestStreak: number;
+}
+
 export async function fetchTodayAssignedRoutines(token: string): Promise<DailyUserRoutine[]> {
   const today = new Date();
-  const todayStr = formatDate(today, 'yyyy-MM-dd');
+  const todayStr = formatDate(today, 'yyyy-MM-dd')
 
   const logsRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${todayStr}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -94,7 +96,6 @@ export async function fetchTodayWorkoutLog(token: string, planId: number | undef
 
     if (todayLog && todayLog.actual_exercise) {
       if (Array.isArray(todayLog.actual_exercise)) {
-        // Already parsed JSON list
         return new Set(todayLog.actual_exercise.map((ex: any) => ex.name));
       } else if (typeof todayLog.actual_exercise === 'string') {
         try {
@@ -111,6 +112,21 @@ export async function fetchTodayWorkoutLog(token: string, planId: number | undef
     console.error("Error fetching today's workout log:", err);
     return new Set();
   }
+}
+
+export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
+  const res = await fetch(`https://vibrafit.onrender.com/api/logged-meals/`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    console.error(await res.text());
+    throw new Error("Failed to fetch meals");
+  }
+
+  return res.json();
 }
 
 export async function saveWorkoutProgress(
@@ -155,7 +171,7 @@ export async function saveWorkoutProgress(
       plan: planId,
       date: todayStr,
       actual_exercise: completedExercises,
-      completion_percentage: Math.round((completedExercises.length / allExercises.length) * 100),
+      completion_percentage: allExercises.length > 0 ? Math.round((completedExercises.length / allExercises.length) * 100) : 0,
       notes: notes,
     };
 
@@ -220,18 +236,24 @@ export default function WorkoutsPage() {
   const [isSavingAdHoc, setIsSavingAdHoc] = useState(false);
   const [deletingAdHocId, setDeletingAdHocId] = useState<number | null>(null);
 
-  const [dailyRoutine, setDailyRoutine] = useState<DailyUserRoutine | null>(null);
   const [completedExercisesMap, setCompletedExercisesMap] = useState<Record<number, Set<string>>>({});
   const [userNotesMap, setUserNotesMap] = useState<Record<number, string>>({});
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(true);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
   const [multipleRoutines, setMultipleRoutines] = useState<DailyUserRoutine[]>([]);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+  const [userStats, setUserStats] = useState<UserStats>({ longestStreak: 0 });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRoutine, setSelectedRoutine] = useState<DailyUserRoutine | null>(null);
 
   const router = useRouter();
   const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!token) {
       router.push('/signin');
       return;
@@ -239,38 +261,74 @@ export default function WorkoutsPage() {
 
     setIsLoadingRoutine(true);
     setIsLoadingAdHoc(true);
+    setIsLoadingStats(true);
+
+    const loadUserData = async () => {
+      try {
+        const data = await getUserData();
+        setUser(data);
+      } catch (err: any) {
+        if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
+          localStorage.clear();
+          router.push('/signin');
+          return;
+        }
+        toast({
+          title: t('toastErrorGeneric'),
+          description: err.message || t('toastErrorLoadProfile'),
+          variant: 'destructive',
+        });
+      }
+    };
+
+    const loadStatsData = async () => {
+      try {
+        const [meals, logs, streak] = await Promise.all([
+          fetchMealsFromApi(token),
+          fetchDailyLogs(token),
+          calculateLongestStreak(token),
+        ]);
+        setMealHistory(meals);
+        setDailyLogs(logs);
+        setUserStats({ longestStreak: streak });
+      } catch (err: any) {
+        toast({ title: t('toastErrorGeneric'), description: err.message || t('toastErrorLoadStats'), variant: "destructive" });
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
 
     const loadRoutineData = async () => {
       try {
         const routines = await fetchTodayAssignedRoutines(token);
         setMultipleRoutines(routines);
 
-        if (routines.length > 0) {
-          const defaultRoutine = routines[0];
-          setDailyRoutine(defaultRoutine);
-
-          const completed = await fetchTodayWorkoutLog(token, defaultRoutine.planId);
-          setCompletedExercisesMap(prev => ({ ...prev, [defaultRoutine.planId]: completed }));
-
-          const todayLogRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${formatDate(new Date(), 'yyyy-MM-dd')}&plan_id=${defaultRoutine.planId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          if (todayLogRes.ok) {
-            const logs = await todayLogRes.json();
-            const currentLog = logs.find((l: DailyLog) => l.plan === defaultRoutine.planId);
-            if (currentLog) {
-              setUserNotesMap(prev => ({ ...prev, [defaultRoutine.planId]: currentLog.notes || '' }));
-            }
-          }
-        }
-      } catch (err: any) {
-        console.error("Error loading routine data:", err);
-        toast({
-          title: t('toastErrorGeneric'),
-          description: err.message || t('toastErrorLoadRoutine'),
-          variant: "destructive"
+        const logPromises = routines.map(r => fetchTodayWorkoutLog(token, r.planId));
+        const completedSets = await Promise.all(logPromises);
+        const newCompletedMap: Record<number, Set<string>> = {};
+        routines.forEach((routine, index) => {
+          newCompletedMap[routine.planId] = completedSets[index];
         });
+        setCompletedExercisesMap(newCompletedMap);
+
+        const notesPromises = routines.map(async (r) => {
+          const logRes = await fetch(`https://vibrafit.onrender.com/api/daily-logs/?date=${formatDate(new Date(), 'yyyy-MM-dd')}&plan_id=${r.planId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (logRes.ok) {
+            const logs: DailyLog[] = await logRes.json();
+            const currentLog = logs.find((l: DailyLog) => l.plan === r.planId);
+            return { planId: r.planId, notes: currentLog?.notes || '' };
+          }
+          return { planId: r.planId, notes: '' };
+        });
+        const allNotes = await Promise.all(notesPromises);
+        const newNotesMap: Record<number, string> = {};
+        allNotes.forEach(item => newNotesMap[item.planId] = item.notes);
+        setUserNotesMap(newNotesMap);
+
+      } catch (err: any) {
+        toast({ title: t('toastErrorGeneric'), description: err.message || t('toastErrorLoadRoutine'), variant: "destructive" });
       } finally {
         setIsLoadingRoutine(false);
       }
@@ -279,78 +337,67 @@ export default function WorkoutsPage() {
     const loadAdHocData = async () => {
       try {
         const history = await fetchAdHocWorkouts(token);
-        const mappedHistory: AdHocWorkout[] = history.map((ex) => ({
-          id: ex.id,
-          description: ex.description,
-          date: new Date(ex.date),
-        }));
-
-        setAdHocHistory(mappedHistory);
+        setAdHocHistory(history.map(h => ({ ...h, date: new Date(h.date) })));
       } catch (err: any) {
-        console.error("Error loading ad-hoc history:", err);
-        toast({
-          title: t('toastErrorGeneric'),
-          description: err.message || t('toastErrorLoadHistory'),
-          variant: "destructive"
-        });
+        toast({ title: t('toastErrorGeneric'), description: err.message || t('toastErrorLoadHistory'), variant: "destructive" });
       } finally {
         setIsLoadingAdHoc(false);
       }
     };
 
+    loadUserData();
+    loadStatsData();
     loadRoutineData();
     loadAdHocData();
   }, [token, router, toast, t]);
 
+  const todayCalories = mealHistory
+    .filter((meal: LoggedMeal) =>
+      formatDate(new Date(meal.date), 'yyyy-MM-dd') === formatDate(new Date(), 'yyyy-MM-dd')
+    )
+    .reduce((sum, meal) => sum + (meal.calories ?? 0), 0);
+
+  const workoutsThisWeek = dailyLogs
+    .filter((log: DailyLog) => {
+      const logDate = new Date(log.date);
+      return isWithinInterval(logDate, {
+        start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        end: endOfWeek(new Date(), { weekStartsOn: 1 })
+      }) && Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
+    })
+    .length;
 
   function handleToggleExerciseComplete(planId: number, name: string) {
     setCompletedExercisesMap(prev => {
-      const set = new Set(prev[planId] || []);
-      set.has(name) ? set.delete(name) : set.add(name);
-      return { ...prev, [planId]: set };
+      const newMap = { ...prev };
+      const set = new Set(newMap[planId] || []);
+      if (set.has(name)) {
+        set.delete(name);
+      } else {
+        set.add(name);
+      }
+      newMap[planId] = set;
+      return newMap;
     });
   }
 
-  function handleNoteChange(planId: number, note: string) {
-    setUserNotesMap(prev => ({ ...prev, [planId]: note }));
-  }
-
-  const routineProgress = useMemo(() => {
-    if (!dailyRoutine || dailyRoutine.exercises.length === 0) return 0;
-    const completed = completedExercisesMap[dailyRoutine.planId] || new Set();
-    return (completed.size / dailyRoutine.exercises.length) * 100;
-  }, [dailyRoutine, completedExercisesMap]);
-
   const handleSaveRoutineProgress = async (planId: number) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     if (!token) {
       toast({ title: t('toastNotLoggedIn'), description: t('toastNotLoggedInDesc'), variant: "destructive" });
       return;
     }
 
     const routine = multipleRoutines.find(r => r.planId === planId);
-    if (!routine) {
-      toast({ title: t('toastErrorGeneric'), description: t('toastErrorNoRoutineToSave'), variant: "destructive" });
-      return;
-    }
+    if (!routine) return;
 
     const completed = completedExercisesMap[planId] || new Set();
     const notes = userNotesMap[planId] || '';
 
     setIsSavingProgress(true);
     try {
-      const result = await saveWorkoutProgress(
-        token,
-        planId,
-        Array.from(completed),
-        routine.exercises,
-        notes
-      );
-      if (result.success) {
-        toast({ title: t('toastProgressSaved'), description: t('toastProgressSavedDesc') });
-      } else {
-        toast({ title: t('toastSaveFailed'), description: (result as any).error?.detail || t('toastSaveFailedDesc'), variant: "destructive" });
-      }
+      await saveWorkoutProgress(token, planId, Array.from(completed), routine.exercises, notes);
+      toast({ title: t('toastProgressSaved'), description: t('toastProgressSavedDesc') });
+      setIsModalOpen(false);
     } catch (error: any) {
       toast({ title: t('toastErrorGeneric'), description: error.message || t('toastErrorGenericDesc'), variant: "destructive" });
     } finally {
@@ -358,203 +405,177 @@ export default function WorkoutsPage() {
     }
   };
 
-
-  const handlePlayVideo = (videoUrl: string) => {
-    window.open(videoUrl, '_blank'); // Open video in new tab
+  const handleStartWorkout = (routine: DailyUserRoutine) => {
+    setSelectedRoutine(routine);
+    setIsModalOpen(true);
   };
-
+  
   const handleAddAdHocWorkout = async () => {
-    if (!adHocNotes.trim()) {
-      toast({
-        title: t('toastEmptyLogTitle'),
-        description: t('toastEmptyLogDesc'),
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) {
-      toast({
-        title: t('toastNotLoggedIn'),
-        description: t('toastNotLoggedInDesc'),
-        variant: "destructive"
-      });
-      return;
-    }
-
+    if (!adHocNotes.trim() || !token) return;
     setIsSavingAdHoc(true);
     try {
-      const todayStr = formatDate(new Date(), 'yyyy-MM-dd');
-      const result = await addAdHocWorkout(token, adHocNotes, todayStr);
-
-      if (result.success && result.data) {
-        const newAdHoc: AdHocWorkout = {
-          id: result.data.id,
-          description: result.data.description,
-          date: new Date(result.data.date)
-        };
-
-        setAdHocHistory(prev => [newAdHoc, ...prev]);
-        setAdHocNotes('');
-        toast({
-          title: t('toastWorkoutLoggedTitle'),
-          description: t('toastWorkoutLoggedDesc')
-        });
-      } else {
-        toast({
-          title: t('toastLogFailedTitle'),
-          description: t('toastLogFailedDesc'),
-          variant: "destructive"
-        });
-      }
+      const result = await addAdHocWorkout(token, adHocNotes, formatDate(new Date(), 'yyyy-MM-dd'));
+      setAdHocHistory(prev => [{ ...result.data, date: new Date(result.data.date) }, ...prev]);
+      setAdHocNotes('');
+      toast({ title: t('toastWorkoutLoggedTitle'), description: t('toastWorkoutLoggedDesc') });
     } catch (error: any) {
-      toast({
-        title: t('toastErrorGeneric'),
-        description: error.message || t('toastErrorGenericDesc'),
-        variant: "destructive"
-      });
+      toast({ title: t('toastLogFailedTitle'), description: error.message || t('toastLogFailedDesc'), variant: "destructive" });
     } finally {
       setIsSavingAdHoc(false);
     }
   };
 
   const handleDeleteAdHocWorkout = async (id: number) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) { toast({ title: t('toastNotLoggedIn'), description: t('toastNotLoggedInDesc'), variant: "destructive" }); return; }
-    
+    if (!token) return;
     setDeletingAdHocId(id);
     try {
-      const result = await deleteAdHocWorkout(token, id);
-      if(result.success) {
-        setAdHocHistory(prev => prev.filter(w => w.id !== id));
-        toast({ title: t('toastWorkoutDeletedTitle'), description: t('toastWorkoutDeletedDesc') });
-      } else toast({ title: t('toastDeletionFailedTitle'), description: t('toastDeletionFailedDesc'), variant: "destructive" });
-    } catch (error: any) { toast({ title: t('toastErrorGeneric'), description: error.message || t('toastErrorGenericDesc'), variant: "destructive" });
-    } finally { setDeletingAdHocId(null); }
+      await deleteAdHocWorkout(token, id);
+      setAdHocHistory(prev => prev.filter(w => w.id !== id));
+      toast({ title: t('toastWorkoutDeletedTitle'), description: t('toastWorkoutDeletedDesc') });
+    } catch (error: any) {
+      toast({ title: t('toastDeletionFailedTitle'), description: error.message || t('toastDeletionFailedDesc'), variant: "destructive" });
+    } finally {
+      setDeletingAdHocId(null);
+    }
   };
 
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold">{t('title')}</h1>
       <p className="text-muted-foreground">{t('description')}</p>
-      
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="shadow-md">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              {t('longestStreak')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+            ) : (
+              <p className="text-2xl font-bold">{userStats.longestStreak} <span className="text-sm font-normal text-muted-foreground">{t('days')}</span></p>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-md">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Dumbbell className="h-5 w-5 text-primary" />
+              {t('workoutsThisWeek')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+            ) : (
+              <p className="text-2xl font-bold">{workoutsThisWeek || '--'}</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-md">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Scale className="h-5 w-5 text-primary" />
+              {t('currentWeight')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+            ) : (
+              <p className="text-2xl font-bold">
+                {user?.metrics?.weight ? `${user.metrics.weight} kg` : '-- kg'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-md">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Apple className="h-5 w-5 text-primary" />
+              {t('todayCalories')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <div className="h-8 w-16 bg-muted rounded animate-pulse" />
+            ) : (
+              <p className="text-2xl font-bold">{todayCalories || '----'} <span className="text-sm font-normal text-muted-foreground">{t('kcal')}</span></p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {isLoadingRoutine ? (
-        <div className="space-y-3 p-4">{[...Array(3)].map((_, i) => (
-          <div key={i} className="h-16 bg-muted rounded animate-pulse"></div>
-        ))}</div>
-      ) : multipleRoutines.length > 0 ? (
-        multipleRoutines.map((routine) => {
-          const completed = completedExercisesMap[routine.planId] || new Set();
-          const progress = Math.round((completed.size / routine.exercises.length) * 100);
-          const userNotes = userNotesMap[routine.planId] || '';
-
-          return (
-            <Card key={routine.planId} className="shadow-lg border-primary/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Dumbbell className="h-6 w-6" />
-                  {t('todaysRoutineTitle', {
-                    routineName: routine.routineName ?? '',
-                    date: formatDate(routine.date, 'PPP', { locale: es }),
-                  })}
-                </CardTitle>
-                {routine.trainerNotes && (
-                  <CardDescription className="pt-1 text-sm italic text-blue-600 dark:text-blue-400">
-                    {t('trainerNotesLabel')}: {routine.trainerNotes}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between items-center text-sm mb-1 font-medium">
-                      <span>{t('progressLabel', { completed: completed.size, total: routine.exercises.length })}</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="w-full h-3 [&>div]:bg-green-500" />
-                  </div>
-
-                  <ul className="space-y-3">
-                    {routine.exercises.map((exercise) => (
-                      <li key={exercise.id} className="flex items-center justify-between p-3.5 bg-card border rounded-lg hover:bg-secondary/30 transition-colors shadow-sm">
-                        <div className="flex items-start gap-3 flex-1">
-                          <Checkbox
-                            id={`${routine.planId}-${exercise.id}`}
-                            checked={completed.has(exercise.name)}
-                            onCheckedChange={() => handleToggleExerciseComplete(routine.planId, exercise.name)}
-                            aria-label={t('markExerciseCompleteLabel', { exerciseName: exercise.name })}
-                            disabled={isSavingProgress}
-                            className="h-5 w-5 mt-1"
-                          />
-                          <div className="flex-1">
-                            <label htmlFor={`${routine.planId}-${exercise.id}`} className="font-medium cursor-pointer block">
-                              {exercise.name}
-                            </label>
-                            <p className="text-xs text-muted-foreground">{exercise.sets} sets × {exercise.reps} {exercise.unit}</p>
-                            {exercise.notes && (
-                              <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">
-                                {t('exerciseNotesLabel')}: {exercise.notes}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {exercise.videoUrl && (
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handlePlayVideo(exercise.videoUrl!)}
-                              aria-label={t('videoLinkLabel', { exerciseName: exercise.name })}
-                            >
-                              <PlayCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {completed.has(exercise.name) && <CheckSquare className="h-5 w-5 text-green-500" />}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-6 space-y-2">
-                    <Label htmlFor={`user-notes-${routine.planId}`} className="font-medium">
-                      {t('myWorkoutNotesLabel')}
-                    </Label>
-                    <Textarea
-                      id={`user-notes-${routine.planId}`}
-                      placeholder={t('myWorkoutNotesPlaceholder')}
-                      value={userNotes}
-                      onChange={(e) => handleNoteChange(routine.planId, e.target.value)}
-                      rows={3}
-                      disabled={isSavingProgress}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="flex justify-end border-t pt-4">
-                <Button
-                  onClick={() => handleSaveRoutineProgress(routine.planId)}
-                  disabled={isSavingProgress || isLoadingRoutine}
-                  size="lg"
-                >
-                  {isSavingProgress ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                  )}
-                  {isSavingProgress ? t('savingProgressButton') : t('saveProgressButton')}
-                </Button>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader><div className="h-6 w-3/4 bg-muted rounded"></div></CardHeader>
+              <CardContent><div className="h-4 w-1/2 bg-muted rounded"></div></CardContent>
+              <CardFooter className="flex-col items-start gap-4">
+                <div className="h-10 w-full bg-muted rounded"></div>
+                <div className="h-2 w-full bg-muted rounded-full"></div>
               </CardFooter>
             </Card>
-          );
-        })
+          ))}
+        </div>
+      ) : multipleRoutines.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {multipleRoutines.map((routine) => {
+            const completed = completedExercisesMap[routine.planId] || new Set();
+            const progress = routine.exercises.length > 0 ? Math.round((completed.size / routine.exercises.length) * 100) : 0;
+            const progressColor = progress < 50 ? 'bg-red-500' : progress < 80 ? 'bg-yellow-400' : 'bg-green-500';
+
+            return (
+              <Card key={routine.planId} className="shadow-md flex flex-col justify-between">
+                <div>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Dumbbell className="h-6 w-6 text-primary" />
+                      {routine.routineName}
+                    </CardTitle>
+                    <CardDescription>{t('routineProgress')}: {progress}%</CardDescription>
+                  </CardHeader>
+                   <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                        {t('todaysRoutineDate', { date: formatDate(routine.date, 'PPP', { locale: es })})}
+                    </p>
+                  </CardContent>
+                </div>
+                <div>
+                  <CardFooter className="flex-col items-start gap-4 pt-0">
+                    <Button className="w-full" onClick={() => handleStartWorkout(routine)}>
+                       <Play className="mr-2 h-4 w-4" /> {t('startWorkoutButton')}
+                    </Button>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                       <div className={cn("h-full rounded-full transition-all", progressColor)} style={{ width: `${progress}%` }} />
+                    </div>
+                  </CardFooter>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <p className="text-muted-foreground text-center py-8 text-lg" dangerouslySetInnerHTML={{ __html: t.raw('noRoutineAssigned') }} />
       )}
 
-
+      {selectedRoutine && (
+         <WorkoutSessionModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            routine={selectedRoutine}
+            completedExercises={completedExercisesMap[selectedRoutine.planId] || new Set()}
+            onToggleComplete={handleToggleExerciseComplete}
+            onSaveProgress={handleSaveRoutineProgress}
+            isSaving={isSavingProgress}
+         />
+      )}
+      
       <Card className="shadow-sm">
         <CardHeader><CardTitle className="flex items-center gap-2"><PlusCircle className="h-5 w-5 text-primary" /> {t('logAdHocTitle')}</CardTitle>
           <CardDescription>{t('logAdHocDescription')}</CardDescription></CardHeader>
@@ -562,7 +583,8 @@ export default function WorkoutsPage() {
             onChange={(e) => setAdHocNotes(e.target.value)} disabled={isSavingAdHoc} /></CardContent>
         <CardFooter><Button onClick={handleAddAdHocWorkout} disabled={isSavingAdHoc || !adHocNotes.trim()}>
             {isSavingAdHoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {isSavingAdHoc ? t('loggingAdHocButton') : t('logAdHocButton')}</Button></CardFooter></Card>
+            {isSavingAdHoc ? t('loggingAdHocButton') : t('logAdHocButton')}</Button></CardFooter>
+      </Card>
       
       <Card className="shadow-sm">
         <CardHeader><CardTitle>{t('adHocHistoryTitle')}</CardTitle><CardDescription>{t('adHocHistoryDescription')}</CardDescription></CardHeader>
