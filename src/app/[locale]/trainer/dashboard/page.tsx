@@ -148,7 +148,7 @@ export default function TrainerDashboardPage() {
           <CardDescription>{t('recentClientActivityDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <TrainerRecentActivityFeed limit={5} />
+          <TrainerRecentActivityFeed limit={10} />
         </CardContent>
       </Card>
 

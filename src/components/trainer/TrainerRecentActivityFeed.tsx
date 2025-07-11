@@ -5,7 +5,7 @@ import { Dumbbell, Apple } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { useToast } from '@/hooks/use-toast';
-import { DailyLog, fetchTrainerClientDailyLogs } from '@/lib/api';
+import { fetchTrainerClientDailyLogs } from '@/lib/api';
 
 interface Activity {
   id: number;
@@ -19,7 +19,7 @@ interface TrainerRecentActivityFeedProps {
   limit?: number;
 }
 
-export default function TrainerRecentActivityFeed({ limit = 5 }: TrainerRecentActivityFeedProps) {
+export default function TrainerRecentActivityFeed({ limit = 10 }: TrainerRecentActivityFeedProps) {
   const t = useTranslations('RecentActivityFeed');
   const { toast } = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
