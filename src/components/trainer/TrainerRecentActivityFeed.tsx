@@ -19,7 +19,7 @@ interface TrainerRecentActivityFeedProps {
   limit?: number;
 }
 
-export default function TrainerRecentActivityFeed({ limit = 10 }: TrainerRecentActivityFeedProps) {
+export default function TrainerRecentActivityFeed({ limit = 5 }: TrainerRecentActivityFeedProps) {
   const t = useTranslations('RecentActivityFeed');
   const { toast } = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -30,11 +30,15 @@ export default function TrainerRecentActivityFeed({ limit = 10 }: TrainerRecentA
       setIsLoading(true);
       try {
         const logs = await fetchTrainerClientDailyLogs(limit);
+        console.log('Raw DailyLogs:', logs); // Debug: Inspect raw API response
+
         const transformedActivities: Activity[] = logs
-          .filter(log => 
-            (Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0) || 
-            (log.actual_nutrition && log.actual_nutrition.trim() !== '')
-          )
+          .filter(log => {
+            const hasExercise = Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
+            const hasNutrition = log.actual_nutrition && log.actual_nutrition.trim() !== '';
+            console.log(`Log ID ${log.id}: hasExercise=${hasExercise}, hasNutrition=${hasNutrition}, actual_exercise=${JSON.stringify(log.actual_exercise)}, actual_nutrition="${log.actual_nutrition}"`); // Debug
+            return hasExercise || hasNutrition;
+          })
           .map(log => {
             const activitiesFromLog: Activity[] = [];
             if (Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0) {
@@ -61,8 +65,10 @@ export default function TrainerRecentActivityFeed({ limit = 10 }: TrainerRecentA
           .sort((a, b) => b.date.getTime() - a.date.getTime())
           .slice(0, limit);
 
+        console.log('Transformed Activities:', transformedActivities); // Debug
         setActivities(transformedActivities);
       } catch (error: any) {
+        console.error('Error fetching daily logs:', error); // Debug
         toast({
           title: t('errorLoadActivity'),
           description: error.message || t('errorLoadActivityDescription'),

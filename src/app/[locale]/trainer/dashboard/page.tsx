@@ -39,19 +39,53 @@ export default function TrainerDashboardPage() {
         setUser(userData);
         if (!userData.is_onboarded) setShowOnboarding(true);
 
-        // Fetch stats
-        const [pendingSubs, conversations, activeClientCount] = await Promise.all([
-          fetchPendingSubscriptions(),
-          fetchConversations(),
-          fetchActiveClientCount(),
-        ]);
+        // Fetch stats individually to handle partial failures
+        let clientCount = 0;
+        let unreadMessages = 0;
+        let pendingActions = 0;
 
-        const unreadMessages = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+        try {
+          clientCount = await fetchActiveClientCount();
+          console.log('Active Client Count:', clientCount); // Debug
+        } catch (err: any) {
+          console.error('Error fetching client count:', err);
+          toast({
+            title: t('errorLoadStats'),
+            description: t('errorLoadClientCount'),
+            variant: 'destructive',
+          });
+        }
+
+        try {
+          const conversations = await fetchConversations();
+          unreadMessages = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+          console.log('Conversations:', conversations, 'Unread Messages:', unreadMessages); // Debug
+        } catch (err: any) {
+          console.error('Error fetching conversations:', err);
+          toast({
+            title: t('errorLoadStats'),
+            description: t('errorLoadMessages'),
+            variant: 'destructive',
+          });
+        }
+
+        try {
+          const pendingSubs = await fetchPendingSubscriptions();
+          pendingActions = pendingSubs.length;
+          console.log('Pending Subscriptions:', pendingSubs); // Debug
+        } catch (err: any) {
+          console.error('Error fetching pending subscriptions:', err);
+          toast({
+            title: t('errorLoadStats'),
+            description: t('errorLoadPendingActions'),
+            variant: 'destructive',
+          });
+        }
 
         setTrainerData({
-          clientCount: activeClientCount,
+          clientCount,
           unreadMessages,
-          pendingActions: pendingSubs.length,
+          pendingActions,
         });
       } catch (err: any) {
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
@@ -148,7 +182,7 @@ export default function TrainerDashboardPage() {
           <CardDescription>{t('recentClientActivityDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <TrainerRecentActivityFeed limit={10} />
+          <TrainerRecentActivityFeed limit={5} />
         </CardContent>
       </Card>
 

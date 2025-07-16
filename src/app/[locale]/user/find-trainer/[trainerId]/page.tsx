@@ -104,68 +104,54 @@ export default function TrainerDetailPage() {
 
 
   const handleSubscribe = async () => {
-  if (!trainer || !trainerId) return;
+    if (!trainer || !trainerId) return;
 
-  const token = localStorage.getItem('accessToken');
-  if (!token) {
-    toast({ title: t('errorTitle'), description: t('toastErrorNotAuthenticated'), variant: "destructive" });
-    return;
-  }
-
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setMonth(startDate.getMonth() + 1); // Example: 1 month subscription
-
-  const formatDate = (date: Date) => date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-  setIsSubscribing(true);
-  try {
-    // Step 1: Create subscription
-    const subRes = await fetch('https://vibrafit.onrender.com/api/subscriptions/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        trainer: trainerId, // Send trainer's user ID
-        status: "active",
-        start_date: formatDate(startDate), 
-        end_date: formatDate(endDate),
-      }),
-    });
-    if (!subRes.ok) {
-      const errorData = await subRes.json();
-      throw new Error(errorData.detail || 'Subscription creation failed.');
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      toast({ title: t('errorTitle'), description: t('toastErrorNotAuthenticated'), variant: "destructive" });
+      return;
     }
 
-    // Step 2: Update user's profile to link trainerId
-    const userProfileUpdateRes = await fetch('https://vibrafit.onrender.com/api/users/profile/', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ trainerId: trainerId }), // Link current user to this trainer
-    });
-    if (!userProfileUpdateRes.ok) {
-        const errorData = await userProfileUpdateRes.json();
-        // Attempt to roll back subscription if user profile update fails? Complex.
-        // For now, log and notify.
-        console.error("Failed to update user profile with trainerId, but subscription might be created:", errorData.detail);
-        throw new Error(errorData.detail || 'Failed to update user profile with trainer.');
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(startDate.getMonth() + 1); // example: 1-month duration
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+    setIsSubscribing(true);
+    try {
+      // Create subscription with status "pending"
+      const subRes = await fetch('https://vibrafit.onrender.com/api/subscriptions/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          trainer: trainerId,
+          status: "pending", // changed from "active"
+          start_date: formatDate(startDate),
+          end_date: formatDate(endDate),
+        }),
+      });
+
+      if (!subRes.ok) {
+        const errorData = await subRes.json();
+        throw new Error(errorData.detail || 'Subscription request failed.');
+      }
+
+      toast({
+        title: "Subscription Requested",
+        description: `You’ve sent a subscription request to ${trainer.name}. You’ll be notified when they respond.`,
+      });
+
+      setIsSubscribed(true); // optional, depending on how you define 'subscribed' at this point
+
+    } catch (error: any) {
+      console.error("Subscription request error:", error);
+      toast({ title: t('errorTitle'), description: error.message || t('toastErrorSubscription'), variant: "destructive" });
+    } finally {
+      setIsSubscribing(false);
     }
-    
-    localStorage.setItem('trainerId', trainerId); // Store trainerId for the user
+  };
 
-    toast({
-      title: t('toastSubscribedTitle'),
-      description: t('toastSubscribedDescription', { trainerName: trainer.name }),
-    });
-    setIsSubscribed(true); // Update UI to reflect subscription
-    router.push('/user/dashboard'); // Redirect to dashboard
-
-  } catch (error: any) {
-    console.error("Subscription process error:", error);
-    toast({ title: t('errorTitle'), description: error.message || t('toastErrorSubscription'), variant: "destructive" });
-  } finally {
-    setIsSubscribing(false);
-  }
-};
 
   if (isLoading) {
     return (

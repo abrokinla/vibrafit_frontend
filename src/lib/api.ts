@@ -521,18 +521,18 @@ export async function sendMessage(recipientId: number, content: string): Promise
 
 export async function fetchActiveClientCount(): Promise<number> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/subscriptions/active-count/`, {
+  const response = await fetch(`${API_BASE_URL}/api/trainer-profile/clients/`, {
     method: 'GET',
     headers,
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to fetch active client count');
+    throw new Error(error.detail || 'Failed to fetch active clients');
   }
 
-  const data = await response.json();
-  return data.count;
+  const clients = await response.json();
+  return clients.length;
 }
 
 export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<DailyLog[]> {
@@ -705,20 +705,13 @@ export async function fetchClientDetailsForTrainer(clientId: number): Promise<Cl
 }
 
 export async function respondToSubscriptionRequest(
-  subscriptionId: number,
-  status: 'active' | 'rejected'
-): Promise<{ success: boolean }> {
+  id: number,
+  status: 'active' | 'declined'
+) {
   const endpoint = status === 'active' ? 'accept' : 'decline';
-  const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/subscriptions/${subscriptionId}/${endpoint}/`, {
+  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/${endpoint}/`, {
     method: 'POST',
-    headers,
+    headers: await getAuthHeaders(),
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || `Failed to ${endpoint} subscription request`);
-  }
-
-  return response.json();
+  return res.ok ? await res.json() : { success: false };
 }

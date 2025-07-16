@@ -9,7 +9,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Check, X, User, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslations } from 'next-intl';
-import { fetchPendingSubscriptions, respondToSubscriptionRequest, SubscriptionRequest } from '@/lib/api';
+import {
+  fetchPendingSubscriptions,
+  respondToSubscriptionRequest,
+  SubscriptionRequest
+} from '@/lib/api';
 import ClientDetailsModal from '@/components/trainer/client-details-modal';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -27,11 +31,21 @@ export default function PendingRequestsPage() {
     setIsLoading(true);
     fetchPendingSubscriptions()
       .then(setRequests)
-      .catch(() => toast({ title: t('toastErrorTitle'), description: t('toastErrorFetch'), variant: "destructive" }))
+      .catch(() =>
+        toast({
+          title: t('toastErrorTitle'),
+          description: t('toastErrorFetch'),
+          variant: "destructive"
+        })
+      )
       .finally(() => setIsLoading(false));
   }, [toast, t]);
-  
-  const handleResponse = async (subscriptionId: number, clientId: number, status: 'active' | 'rejected') => {
+
+  const handleResponse = async (
+    subscriptionId: number,
+    clientId: number,
+    status: 'active' | 'declined'    // ← allow 'declined' (not 'rejected')
+  ) => {
     setIsResponding(subscriptionId);
     try {
       const result = await respondToSubscriptionRequest(subscriptionId, status);
@@ -39,18 +53,25 @@ export default function PendingRequestsPage() {
         setRequests(prev => prev.filter(req => req.id !== subscriptionId));
         toast({
           title: t('toastSuccessTitle'),
-          description: t('toastSuccessDescription', { clientName: requests.find(r => r.id === subscriptionId)?.client.name || 'Client', status: status }),
+          description: t('toastSuccessDescription', {
+            clientName: requests.find(r => r.id === subscriptionId)?.client.name || 'Client',
+            status
+          }),
         });
       } else {
         throw new Error('Failed to update status');
       }
-    } catch (error) {
-      toast({ title: t('toastErrorTitle'), description: t('toastErrorUpdate'), variant: "destructive" });
+    } catch {
+      toast({
+        title: t('toastErrorTitle'),
+        description: t('toastErrorUpdate'),
+        variant: "destructive"
+      });
     } finally {
       setIsResponding(null);
     }
   };
-  
+
   const openClientDetails = (clientId: number) => {
     setSelectedClientId(clientId);
     setIsModalOpen(true);
@@ -59,40 +80,22 @@ export default function PendingRequestsPage() {
   return (
     <div className="space-y-8">
       {selectedClientId && (
-        <ClientDetailsModal 
+        <ClientDetailsModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           clientId={selectedClientId}
         />
       )}
+
       <header>
         <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-muted-foreground">{t('description')}</p>
       </header>
 
       {isLoading ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="flex-row items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-muted"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-5 w-3/4 bg-muted rounded"></div>
-                  <div className="h-4 w-1/2 bg-muted rounded"></div>
-                </div>
-              </CardHeader>
-              <CardFooter className="gap-2">
-                <div className="h-10 w-full bg-muted rounded"></div>
-                <div className="h-10 w-full bg-muted rounded"></div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        /* ... your existing skeleton loader ... */
       ) : requests.length === 0 ? (
-        <div className="text-center py-16 border rounded-lg bg-card shadow-sm">
-          <h2 className="text-xl font-semibold">{t('noPendingTitle')}</h2>
-          <p className="text-muted-foreground mt-2">{t('noPendingDescription')}</p>
-        </div>
+        /* ... your existing “no requests” card ... */
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {requests.map(req => (
@@ -106,31 +109,36 @@ export default function PendingRequestsPage() {
                   <CardTitle className="text-lg">{req.client.name}</CardTitle>
                   <CardDescription className="flex items-center gap-1 text-xs">
                     <Calendar className="h-3 w-3" />
-                    {t('requestedTime', { time: formatDistanceToNow(new Date(req.requested_at), { addSuffix: true, locale: es }) })}
+                    {t('requestedTime', {
+                      time: formatDistanceToNow(new Date(req.requested_at), { addSuffix: true, locale: es })
+                    })}
                   </CardDescription>
                 </div>
               </CardHeader>
+
               <CardContent className="pt-0">
-                 <Button variant="outline" className="w-full" onClick={() => openClientDetails(req.client.id)}>
-                    {t('viewDetailsButton')}
+                <Button variant="outline" className="w-full" onClick={() => openClientDetails(req.client.id)}>
+                  {t('viewDetailsButton')}
                 </Button>
               </CardContent>
+
               <CardFooter className="gap-2">
-                <Button 
-                  className="w-full bg-destructive hover:bg-destructive/90" 
-                  onClick={() => handleResponse(req.id, req.client.id, 'rejected')}
+                <Button
+                  className="w-full bg-destructive hover:bg-destructive/90"
+                  onClick={() => handleResponse(req.id, req.client.id, 'declined')}  {/* ← was 'rejected' */}
                   disabled={isResponding === req.id}
                 >
                   {isResponding === req.id ? <Loader2 className="animate-spin" /> : <X className="h-4 w-4" />}
                   {t('rejectButton')}
                 </Button>
-                <Button 
-                  className="w-full bg-green-600 hover:bg-green-700" 
+
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
                   onClick={() => handleResponse(req.id, req.client.id, 'active')}
                   disabled={isResponding === req.id}
                 >
                   {isResponding === req.id ? <Loader2 className="animate-spin" /> : <Check className="h-4 w-4" />}
-                   {t('approveButton')}
+                  {t('approveButton')}
                 </Button>
               </CardFooter>
             </Card>
