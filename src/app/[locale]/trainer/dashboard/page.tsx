@@ -46,7 +46,7 @@ export default function TrainerDashboardPage() {
 
         try {
           clientCount = await fetchActiveClientCount();
-          console.log('Active Client Count:', clientCount); // Debug
+          console.log('Active Client Count:', clientCount);
         } catch (err: any) {
           console.error('Error fetching client count:', err);
           toast({

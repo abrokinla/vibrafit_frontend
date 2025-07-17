@@ -93,9 +93,28 @@ export default function PendingRequestsPage() {
       </header>
 
       {isLoading ? (
-        /* ... your existing skeleton loader ... */
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="flex-row items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-muted"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 w-3/4 bg-muted rounded"></div>
+                  <div className="h-4 w-1/2 bg-muted rounded"></div>
+                </div>
+              </CardHeader>
+              <CardFooter className="gap-2">
+                <div className="h-10 w-full bg-muted rounded"></div>
+                <div className="h-10 w-full bg-muted rounded"></div>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       ) : requests.length === 0 ? (
-        /* ... your existing “no requests” card ... */
+        <div className="text-center py-16 border rounded-lg bg-card shadow-sm">
+          <h2 className="text-xl font-semibold">{t('noPendingTitle')}</h2>
+          <p className="text-muted-foreground mt-2">{t('noPendingDescription')}</p>
+        </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {requests.map(req => (
@@ -125,7 +144,7 @@ export default function PendingRequestsPage() {
               <CardFooter className="gap-2">
                 <Button
                   className="w-full bg-destructive hover:bg-destructive/90"
-                  onClick={() => handleResponse(req.id, req.client.id, 'declined')}  {/* ← was 'rejected' */}
+                  onClick={() => handleResponse(req.id, req.client.id, 'declined')}
                   disabled={isResponding === req.id}
                 >
                   {isResponding === req.id ? <Loader2 className="animate-spin" /> : <X className="h-4 w-4" />}

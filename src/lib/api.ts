@@ -537,7 +537,7 @@ export async function fetchActiveClientCount(): Promise<number> {
 
 export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<DailyLog[]> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/daily-logs/?limit=${limit}&trainer_clients=true`, {
+  const response = await fetch(`${API_BASE_URL}/api/daily-logs/trainer-clients/?limit=${limit}`, {
     headers,
   });
 
@@ -548,6 +548,7 @@ export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<D
 
   return response.json();
 }
+
 // --- Timeline API Functions (Mocked) ---
 
 // export async function fetchTimelinePosts(): Promise<Post[]> {
