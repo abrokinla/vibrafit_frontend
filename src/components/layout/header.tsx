@@ -27,6 +27,8 @@ export default function Header() {
         setDashboardPath('/trainer/dashboard');
       } else if (role === 'admin') {
         setDashboardPath('/admin/dashboard');
+      } else if (role === 'gym') {
+        setDashboardPath('/gym/dashboard');
       }
       else {
         setDashboardPath('/user/dashboard');

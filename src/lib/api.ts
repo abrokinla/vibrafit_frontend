@@ -12,7 +12,7 @@ export interface GoalPayload {
 export interface UserData {
   id: number;
   email: string;
-  role: "admin" | "trainer" | "client";
+  role: "admin" | "trainer" | "client" | "gym";
   is_active: boolean;
   is_staff: boolean;
   created_at: string;
@@ -28,6 +28,8 @@ export interface UserData {
   trainingLevel: string | null;
   date_of_birth: string | null;
   goal: GoalPayload | null;
+  interests?: string[];
+  gym_name?: string;
 
   metrics: {
     weight?: number | null;
@@ -45,6 +47,7 @@ export interface TrainerProfileData {
   certifications: string;
   specializations: string [];
   experience_years: number | null;
+  rating?: number;
 }
 // Routine-related types
 export type RoutinePlan = {
@@ -115,7 +118,7 @@ export interface PostAuthor {
   id: number;
   name: string;
   profilePictureUrl: string | null;
-  role: 'client' | 'trainer' | 'admin';
+  role: 'client' | 'trainer' | 'admin' | 'gym';
 }
 
 export interface PostStats {
@@ -139,7 +142,7 @@ export interface PublicProfileData {
   id: number;
   email?: string;
   name: string;
-  role: 'client' | 'trainer' | 'admin';
+  role: 'client' | 'trainer' | 'admin' | 'gym';
   profilePictureUrl: string | null;
   created_at: string;
   bio?: string;
@@ -407,6 +410,47 @@ export async function saveUserProfile(
   return { success: true };
 }
 
+export async function completeUserOnboarding(
+  userId: string,
+  data: Partial<UserData> & { interests: string[], goal?: Partial<GoalPayload> }
+): Promise<{ success: boolean; message?: string }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/api/users/${userId}/onboard/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    return { success: false, message: errorData.detail || 'Onboarding failed' };
+  }
+  return { success: true };
+}
+
+export async function completeTrainerOnboarding(
+  userId: string,
+  data: {
+    name: string;
+    country: string;
+    state: string;
+    profilePictureUrl?: string;
+    professionalInfo: Partial<TrainerProfileData>;
+  }
+): Promise<{ success: boolean; message?: string }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/api/users/${userId}/onboard/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    return { success: false, message: errorData.detail || 'Onboarding failed' };
+  }
+  return { success: true };
+}
 
 type MetricInput = {
   type: string;
@@ -549,40 +593,56 @@ export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<D
   return response.json();
 }
 
-// --- Timeline API Functions (Mocked) ---
+// --- Timeline API Functions ---
+const allPosts: Post[] = [
+    {
+      id: 'post-1',
+      author: { id: 101, name: 'Jane Doe', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
+      content: 'Just crushed my morning workout! Feeling energized and ready to take on the day. #FitnessJourney #Vibrafit',
+      imageUrl: 'https://placehold.co/600x400.png',
+      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      stats: { likes: 15, reposts: 3, comments: 2 },
+      isLiked: false,
+    },
+    {
+      id: 'post-2',
+      author: { id: 2, name: 'John Thorn', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'trainer' },
+      content: 'New video on proper squat form is up! Check it out to avoid common mistakes and maximize your gains. Let me know if you have questions!',
+      videoUrl: 'https://www.youtube.com/watch?v=bEv6CCg2BC8', // A real squat video
+      createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
+      stats: { likes: 42, reposts: 12, comments: 8 },
+      isLiked: true,
+    },
+    {
+      id: 'post-3',
+      author: { id: 102, name: 'Carlos Estevez', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
+      content: 'Meal prep for the week is done! Eating healthy is so much easier when you plan ahead.',
+      imageUrl: 'https://placehold.co/600x300.png',
+      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      stats: { likes: 28, reposts: 5, comments: 4 },
+      isLiked: false,
+    },
+     {
+      id: 'post-4',
+      author: { id: 2, name: 'John Thorn', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'trainer' },
+      content: 'Client progress highlight! So proud of the dedication shown here.',
+      imageUrl: 'https://placehold.co/400x600.png',
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      stats: { likes: 55, reposts: 20, comments: 15 },
+      isLiked: true,
+    },
+  ];
 
-// export async function fetchTimelinePosts(): Promise<Post[]> {
-//   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-//   return [
-//     {
-//       id: 'post-1',
-//       author: { id: 101, name: 'Jane Doe', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
-//       content: 'Just crushed my morning workout! Feeling energized and ready to take on the day. #FitnessJourney #Vibrafit',
-//       imageUrl: 'https://placehold.co/600x400.png',
-//       createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-//       stats: { likes: 15, reposts: 3, comments: 2 },
-//       isLiked: false,
-//     },
-//     {
-//       id: 'post-2',
-//       author: { id: 202, name: 'John Thorn', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'trainer' },
-//       content: 'New video on proper squat form is up! Check it out to avoid common mistakes and maximize your gains. Let me know if you have questions!',
-//       videoUrl: 'https://www.youtube.com/watch?v=bEv6CCg2BC8', // A real squat video
-//       createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-//       stats: { likes: 42, reposts: 12, comments: 8 },
-//       isLiked: true,
-//     },
-//     {
-//       id: 'post-3',
-//       author: { id: 102, name: 'Carlos Estevez', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
-//       content: 'Meal prep for the week is done! Eating healthy is so much easier when you plan ahead.',
-//       imageUrl: 'https://placehold.co/600x300.png',
-//       createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-//       stats: { likes: 28, reposts: 5, comments: 4 },
-//       isLiked: false,
-//     },
-//   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-// }
+export async function fetchTimelinePosts(authorId?: string): Promise<Post[]> {
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  
+  let posts = allPosts;
+  if (authorId) {
+    posts = allPosts.filter(p => p.author.id.toString() === authorId);
+  }
+  
+  return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
 
 export async function likePost(postId: string, like: boolean): Promise<{ success: boolean; newLikeCount: number }> {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -612,6 +672,7 @@ export async function createPost(content: string, mediaUrl?: string, mediaType?:
         stats: { likes: 0, reposts: 0, comments: 0 },
         isLiked: false,
     };
+    allPosts.unshift(newPost); // Add to our mock database
     return { success: true, newPost: newPost };
   } catch (error) {
     console.error("Cannot create post without user data", error);

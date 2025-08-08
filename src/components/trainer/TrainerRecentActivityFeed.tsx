@@ -30,7 +30,7 @@ export default function TrainerRecentActivityFeed({ limit = 5 }: TrainerRecentAc
       setIsLoading(true);
       try {
         const logs = await fetchTrainerClientDailyLogs(limit);
-        console.log('Raw DailyLogs:', logs); // Debug: Inspect raw API response
+        console.log('Raw DailyLogs:', logs);
 
         const transformedActivities: Activity[] = logs
           .filter(log => {

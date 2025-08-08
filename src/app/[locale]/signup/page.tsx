@@ -17,7 +17,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'client' | 'trainer'>('client');
+  const [role, setRole] = useState<'client' | 'trainer' | 'gym'>('client');
+  const [gymName, setGymName] = useState('');
   const [error, setError] = useState('');
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -34,19 +35,30 @@ export default function SignUpPage() {
       return;
     }
 
+    if (role === 'gym' && !gymName.trim()) {
+      setError(t('errorGymNameRequired'));
+      return;
+    }
+
     try {
+      const registrationPayload: any = { email, password, role };
+      if (role === 'gym') {
+        registrationPayload.gym_name = gymName;
+      }
+      
       const regRes = await fetch('https://vibrafit.onrender.com/api/users/register/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify(registrationPayload),
       });
+
       if (!regRes.ok) {
-        const text = await regRes.text();
-        throw new Error(t('errorRegisterFailed', { details: text }));
+        const errorData = await regRes.json();
+        const errorMessage = errorData.email?.[0] || errorData.detail || t('errorRegisterFailed', { details: JSON.stringify(errorData) });
+        throw new Error(errorMessage);
       }
       const user = await regRes.json();
       localStorage.setItem('userId', user.id);
-
       
       const loginRes = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
         method: 'POST',
@@ -60,10 +72,12 @@ export default function SignUpPage() {
       const { access, refresh } = await loginRes.json();
       localStorage.setItem('accessToken', access);
       localStorage.setItem('refreshToken', refresh);
-      localStorage.setItem('userRole', role); // Save role
+      localStorage.setItem('userRole', role);
   
       if (role === 'trainer') {
         router.push('/trainer/dashboard');
+      } else if (role === 'gym') {
+        router.push('/gym/dashboard');
       } else {
         router.push('/user/dashboard');
       }
@@ -86,21 +100,39 @@ export default function SignUpPage() {
              <div className="space-y-2">
                <Label>{t('roleLabel')}</Label>
                 <RadioGroup
-                    defaultValue="client" // Corrected default value to match type
+                    defaultValue="client"
                     value={role}
-                    onValueChange={(value: 'client' | 'trainer') => setRole(value)}
-                    className="flex space-x-4 pt-2"
+                    onValueChange={(value: 'client' | 'trainer' | 'gym') => setRole(value)}
+                    className="flex flex-col space-y-2 pt-2"
                  >
                     <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="client" id="role-client" />
-                    <Label htmlFor="role-client">{t('roleUser')}</Label>
+                      <RadioGroupItem value="client" id="role-client" />
+                      <Label htmlFor="role-client">{t('roleUser')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="trainer" id="role-trainer" />
-                    <Label htmlFor="role-trainer">{t('roleTrainer')}</Label>
+                      <RadioGroupItem value="trainer" id="role-trainer" />
+                      <Label htmlFor="role-trainer">{t('roleTrainer')}</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="gym" id="role-gym" />
+                      <Label htmlFor="role-gym">{t('roleGym')}</Label>
                     </div>
                 </RadioGroup>
              </div>
+            
+            {role === 'gym' && (
+              <div className="space-y-2 animate-in fade-in duration-300">
+                <Label htmlFor="gymName">{t('gymNameLabel')}</Label>
+                <Input
+                  id="gymName"
+                  type="text"
+                  placeholder={t('gymNamePlaceholder')}
+                  required
+                  value={gymName}
+                  onChange={(e) => setGymName(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">{t('emailLabel')}</Label>

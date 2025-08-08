@@ -37,15 +37,13 @@ export default async function LocaleLayout({
   params
 }: {
   children: React.ReactNode;
-  params: Promise<{locale: string}>; // Changed to Promise
+  params: {locale: string}; 
 }) {
-  // Await params before accessing properties
-  const { locale } = await params;
+  const { locale } = params;
   const messages = await getMessages(); // Uses locale from context
 
   return (
-    <html lang={locale} suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
+    <div lang={locale} suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <Header />
           <main className="flex-grow container mx-auto px-4 py-8">
@@ -54,7 +52,6 @@ export default async function LocaleLayout({
           <Footer />
           <Toaster />
         </NextIntlClientProvider>
-      </body>
-    </html>
+    </div>
   );
 }

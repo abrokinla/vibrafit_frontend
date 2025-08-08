@@ -74,6 +74,8 @@ export default function SignInPage() {
         router.push('/admin/dashboard');
       } else if (role === 'trainer') {
         router.push('/trainer/dashboard');
+      } else if (role === 'gym') {
+        router.push('/gym/dashboard');
       } else {
         router.push('/user/dashboard');
       }

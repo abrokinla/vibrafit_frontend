@@ -13,6 +13,7 @@ export const { Link, redirect, usePathname, useRouter, getPathname } = createNav
     '/signup': '/signup',
     '/timeline': '/timeline',
     '/admin/dashboard': '/admin/dashboard',
+    '/gym/dashboard': '/gym/dashboard',
     '/trainer/dashboard': '/trainer/dashboard',
     '/trainer/profile': '/trainer/profile',
     '/trainer/routines': '/trainer/routines',

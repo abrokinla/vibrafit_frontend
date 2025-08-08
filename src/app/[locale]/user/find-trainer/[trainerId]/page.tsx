@@ -9,10 +9,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Award, Star, CheckCircle, Info } from "lucide-react";
+import { Briefcase, Award, Star, CheckCircle, Info, Image as ImageIcon, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { CombinedProfileData } from '@/lib/api'; // Assuming this includes user and trainer profile fields
+import { CombinedProfileData, fetchTimelinePosts, Post } from '@/lib/api';
 import { useTranslations } from 'next-intl';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Image from "next/image";
 
 type TrainerProfile = CombinedProfileData; // Use your existing combined type
 
@@ -38,7 +40,10 @@ async function fetchTrainerById(trainerUserId: string, token: string | null): Pr
       console.warn(`Trainer profile details not found for user ID: ${trainerUserId}. Response status: ${profileRes.status}`);
     }
 
-    return { ...userData, ...trainerProfileData } as TrainerProfile;
+    // Mock rating
+    const mockedRating = { rating: 4.8 };
+
+    return { ...userData, ...trainerProfileData, ...mockedRating } as TrainerProfile;
 
   } catch (err) {
     console.error("Error fetching trainer by ID:", err);
@@ -56,6 +61,7 @@ export default function TrainerDetailPage() {
   const trainerId = Array.isArray(params.trainerId) ? params.trainerId[0] : params.trainerId as string;
 
   const [trainer, setTrainer] = useState<TrainerProfile | null>(null);
+  const [trainerPosts, setTrainerPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false); // State to track current subscription
@@ -72,9 +78,14 @@ export default function TrainerDetailPage() {
     const fetchDetails = async () => {
       setIsLoading(true);
       try {
-        const trainerData = await fetchTrainerById(trainerId, token);
+        const [trainerData, postsData] = await Promise.all([
+          fetchTrainerById(trainerId, token),
+          fetchTimelinePosts(trainerId) // Fetch posts by trainer
+        ]);
+
         if (!trainerData) throw new Error("Trainer not found or could not be loaded.");
         setTrainer(trainerData);
+        setTrainerPosts(postsData);
 
         // Check subscription status
         const subStatusRes = await fetch(`https://vibrafit.onrender.com/api/subscriptions/subscription-status/?trainer_id=${trainerId}`, {
@@ -120,7 +131,6 @@ export default function TrainerDetailPage() {
 
     setIsSubscribing(true);
     try {
-      // Create subscription with status "pending"
       const subRes = await fetch('https://vibrafit.onrender.com/api/subscriptions/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -138,8 +148,8 @@ export default function TrainerDetailPage() {
       }
 
       toast({
-        title: "Subscription Requested",
-        description: `You’ve sent a subscription request to ${trainer.name}. You’ll be notified when they respond.`,
+        title: t('toastSubscribedTitle'),
+        description: t('toastSubscribedDescription', { trainerName: trainer.name }),
       });
 
       setIsSubscribed(true); // optional, depending on how you define 'subscribed' at this point
@@ -219,38 +229,76 @@ export default function TrainerDetailPage() {
             </div>
           )}
         </CardHeader>
-        <CardContent className="pt-6 space-y-6">
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold flex items-center gap-2 text-primary"><Info className="h-5 w-5" /> {t('aboutMeSectionTitle')}</h3>
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{trainer.bio || t('noBioListed')}</p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-                <h3 className="text-lg font-semibold flex items-center gap-2 text-primary"><Briefcase className="h-5 w-5"/> {t('experienceSectionTitle')}</h3>
-                <p className="text-muted-foreground">
-                    {trainer.experience_years ? `${trainer.experience_years} ${t('experienceSuffix')}` : t('noExperienceListed')}
-                </p>
-            </div>
-            <div className="space-y-2">
-                <h3 className="text-lg font-semibold flex items-center gap-2 text-primary"><Award className="h-5 w-5"/> {t('certificationsSectionTitle')}</h3>
-                {trainer.certifications && trainer.certifications.length > 0 ? (
-                    <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-1">
-                        {trainer.certifications.split(',').map((cert, index) => <li key={index}>{cert.trim()}</li>)}
-                    </ul>
-                ) : <p className="text-muted-foreground">{t('noCertificationsListed')}</p>}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">{t('specializationsSectionTitle')}</h3>
-             {specializations.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                    {specializations.map((spec, index) => (
-                        <Badge key={index} variant="default" className="text-sm py-1 px-3 shadow-sm">{spec}</Badge>
-                    ))}
-                </div>
-              ) : <p className="text-muted-foreground">{t('noSpecializationsListed')}</p>}
-          </div>
-        </CardContent>
+        <Tabs defaultValue="profile" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="profile">{t('profileTab')}</TabsTrigger>
+                <TabsTrigger value="media">{t('mediaTab')}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="profile">
+                <CardContent className="pt-6 space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold flex items-center gap-2 text-primary"><Info className="h-5 w-5" /> {t('aboutMeSectionTitle')}</h3>
+                    <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{trainer.bio || t('noBioListed')}</p>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 text-primary"><Briefcase className="h-5 w-5"/> {t('experienceSectionTitle')}</h3>
+                        <p className="text-muted-foreground">
+                            {trainer.experience_years ? `${trainer.experience_years} ${t('experienceSuffix')}` : t('noExperienceListed')}
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 text-primary"><Award className="h-5 w-5"/> {t('certificationsSectionTitle')}</h3>
+                        {trainer.certifications && trainer.certifications.length > 0 ? (
+                            <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-1">
+                                {trainer.certifications.split(',').map((cert, index) => <li key={index}>{cert.trim()}</li>)}
+                            </ul>
+                        ) : <p className="text-muted-foreground">{t('noCertificationsListed')}</p>}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">{t('specializationsSectionTitle')}</h3>
+                     {specializations.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {specializations.map((spec, index) => (
+                                <Badge key={index} variant="default" className="text-sm py-1 px-3 shadow-sm">{spec}</Badge>
+                            ))}
+                        </div>
+                      ) : <p className="text-muted-foreground">{t('noSpecializationsListed')}</p>}
+                  </div>
+                </CardContent>
+            </TabsContent>
+            <TabsContent value="media">
+                <CardContent className="pt-6">
+                    {trainerPosts.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {trainerPosts.map(post => (
+                                (post.imageUrl || post.videoUrl) && (
+                                <div key={post.id} className="relative aspect-square w-full overflow-hidden rounded-md border group">
+                                    {post.imageUrl ? (
+                                        <Image src={post.imageUrl} alt={t('postImageAlt')} fill style={{ objectFit: 'cover' }} unoptimized />
+                                    ) : (
+                                        <div className="bg-black h-full w-full flex items-center justify-center">
+                                            <Video className="h-12 w-12 text-white" />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                                        <p className="text-white text-xs text-center line-clamp-3">{post.content}</p>
+                                    </div>
+                                </div>
+                                )
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <ImageIcon className="mx-auto h-12 w-12 mb-4" />
+                            <p>{t('noMediaMessage')}</p>
+                        </div>
+                    )}
+                </CardContent>
+            </TabsContent>
+        </Tabs>
+
         <CardFooter className="border-t pt-6 flex flex-col items-center">
             {isSubscribed ? (
                  <div className="text-center">
@@ -278,4 +326,3 @@ export default function TrainerDetailPage() {
     </div>
   );
 }
-
