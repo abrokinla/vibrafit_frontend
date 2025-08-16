@@ -31,17 +31,17 @@ async function getUnreadMessageCount(): Promise<number> {
   }
 }
 
-async function getNotificationCount(): Promise<number> {
-  try {
-    const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/api/notifications/unread_count/`, { headers });
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return data.count || 0;
-  } catch {
-    return 0;
-  }
-}
+// async function getNotificationCount(): Promise<number> {
+//   try {
+//     const headers = await getAuthHeaders();
+//     const res = await fetch(`${API_BASE_URL}/api/notifications/unread_count/`, { headers });
+//     if (!res.ok) return 0;
+//     const data = await res.json();
+//     return data.count || 0;
+//   } catch {
+//     return 0;
+//   }
+// }
 
 // Badge component for counts
 function CountBadge({ count }: { count: number }) {
@@ -97,12 +97,14 @@ export default function Header() {
 
     const fetchCounts = async () => {
       try {
-        const [messages, notifications] = await Promise.all([
+        const [messages, 
+          // notifications
+        ] = await Promise.all([
           getUnreadMessageCount(),
-          getNotificationCount()
+          // getNotificationCount()
         ]);
         setMessageCount(messages);
-        setNotificationCount(notifications);
+        // setNotificationCount(notifications);
       } catch (error) {
         console.error('Failed to fetch counts:', error);
       }
