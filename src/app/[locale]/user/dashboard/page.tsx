@@ -2,7 +2,6 @@
 'use client';
 export const runtime = 'edge';
 
-
 import { Suspense, useState, useEffect, useRef } from 'react';
 import Image from 'next/image'; 
 import { Link, useRouter } from '@/navigation'; 
@@ -88,9 +87,6 @@ export async function fetchRecentActivities(token: string, limit = 10): Promise<
     }));
   });
 
-
-
-
   const combined: Activity[] = [...mealActivities, ...workoutActivities];
 
   return combined
@@ -110,16 +106,24 @@ export default function UserDashboardPage() {
    const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
    const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
    const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+   const [isClient, setIsClient] = useState(false);
 
    const [beforePhotoPreview, setBeforePhotoPreview] = useState<string | null>(null);
    const [currentPhotoPreview, setCurrentPhotoPreview] = useState<string | null>(null);
    const [isUploadingBefore, setIsUploadingBefore] = useState(false);
    const [isUploadingCurrent, setIsUploadingCurrent] = useState(false);
 
+   const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'pending' | 'active' | 'declined' | 'expired'>('none');
+   const [subscriptionId, setSubscriptionId] = useState<number | null>(null);
+
    const beforeFileInputRef = useRef<HTMLInputElement>(null);
    const currentFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
-   useEffect(() => {
+  useEffect(() => {
     const loadUserAndActivities = async () => {
       setIsLoadingUser(true);
       setIsLoadingFeed(true);
@@ -133,19 +137,20 @@ export default function UserDashboardPage() {
           setShowOnboarding(false);
         }
 
-        if (data.trainerId) {
-            const token = localStorage.getItem('accessToken');
-            if (token) {
-                 const trainerRes = await fetch(`https://vibrafit.onrender.com/api/users/${data.trainerId}/`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                 });
-                 if (trainerRes.ok) {
-                    const trainerDetails = await trainerRes.json();
-                    setTrainerName(trainerDetails.name);
-                 } else {
-                    console.warn('Could not fetch trainer details for dashboard.');
-                 }
+        // Handle subscription and trainer data
+        if (data.current_subscription) {
+            const subscription = data.current_subscription;
+            setSubscriptionStatus(subscription.status as 'active' | 'pending');
+            setSubscriptionId(subscription.id);
+            
+            // Set trainer name from subscription data
+            if (subscription.trainer) {
+                setTrainerName(subscription.trainer.name);
             }
+        } else {
+            setSubscriptionStatus('none');
+            setSubscriptionId(null);
+            setTrainerName(null);
         }
       
       } catch (err: any) {      
@@ -214,6 +219,41 @@ export default function UserDashboardPage() {
       }) && Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
     })
     .length;
+  const handleCancelSubscription = async () => {
+    if (!subscriptionId) return;
+    
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    
+    try {
+      const response = await fetch(`https://vibrafit.onrender.com/api/subscriptions/${subscriptionId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        setSubscriptionStatus('none');
+        setSubscriptionId(null);
+        setTrainerName(null);
+        toast({
+          title: 'Subscription Cancelled',
+          description: 'Your subscription request has been cancelled.',
+        });
+      } else {
+        throw new Error('Failed to cancel subscription');
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel subscription. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
   
   const handleOnboardingComplete = async () => {
     try {   
@@ -342,7 +382,7 @@ export default function UserDashboardPage() {
                         style={{objectFit:"cover"}}
                         className={isUploadingBefore ? 'opacity-50' : ''}
                         data-ai-hint="fitness before"
-                        unoptimized // Good for external URLs that might not be whitelisted
+                        unoptimized
                     />
                     {isUploadingBefore && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
                 </div>
@@ -448,12 +488,25 @@ export default function UserDashboardPage() {
         <Card className="shadow-sm">
           <CardHeader className="flex items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
-              {user.trainerId ? t('yourTrainerCardTitle') : t('findTrainerCardTitle')}
+              {!isClient ? t('findTrainerCardTitle') : (
+                subscriptionStatus === 'active' ? t('yourTrainerCardTitle') : 
+                subscriptionStatus === 'pending' ? 'Subscription Pending' : 
+                subscriptionStatus === 'expired' ? 'Subscription Expired' :
+                subscriptionStatus === 'declined' ? 'Subscription Declined' :
+                t('findTrainerCardTitle')
+              )}
             </CardTitle>
             <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {user.trainerId ? (
+            {!isClient ? (
+              // Show loading state during hydration
+              <div className="space-y-2">
+                <div className="h-4 bg-muted rounded animate-pulse"></div>
+                <div className="h-8 bg-muted rounded animate-pulse"></div>
+              </div>
+            ) : subscriptionStatus === 'active' ? (
+              // Client has an active subscription and assigned trainer
               <>
                 <div className="text-lg font-bold">
                   {trainerName || t('loadingTrainer')}
@@ -462,12 +515,56 @@ export default function UserDashboardPage() {
                   {t('youAreConnected')}
                 </p>
                 <Button asChild variant="link" size="sm" className="text-xs p-0 h-auto mt-1">
-                  <Link href={`/profile/${user.trainerId}` as any}>
+                  <Link href={`/profile/${user.current_subscription?.trainer?.id}` as any}>
                     {t('viewTrainerProfileLink')}
                   </Link>
                 </Button>
               </>
+            ) : subscriptionStatus === 'pending' ? (
+              // Client has a pending subscription request
+              <>
+                <div className="text-sm font-semibold text-yellow-600 mb-2">
+                  Subscription request to <span className="font-bold">{trainerName}</span> is pending approval
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  The trainer hasn't responded to your request yet
+                </p>
+                <Button 
+                  onClick={handleCancelSubscription}
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-xs border-red-300 text-red-600 hover:bg-red-50"
+                  disabled={isLoadingUser}
+                >
+                  Cancel Subscription Request
+                </Button>
+              </>
+            ) : subscriptionStatus === 'expired' ? (
+              // Subscription has expired
+              <>
+                <div className="text-sm font-semibold text-red-600 mb-2">
+                  Your subscription with <span className="font-bold">{trainerName}</span> has expired
+                </div>
+                <Link href="/user/find-trainer" passHref>
+                  <Button size="sm" className="w-full">
+                    Find New Trainer
+                  </Button>
+                </Link>
+              </>
+            ) : subscriptionStatus === 'declined' ? (
+              // Subscription was declined
+              <>
+                <div className="text-sm font-semibold text-red-600 mb-2">
+                  Your subscription request was declined
+                </div>
+                <Link href="/user/find-trainer" passHref>
+                  <Button size="sm" className="w-full">
+                    {t('browseTrainersButton')}
+                  </Button>
+                </Link>
+              </>
             ) : (
+              // Client has no subscription - show find trainer option
               <>
                 <div className="text-sm text-muted-foreground mb-2">
                   {t('getPersonalizedGuidance')}

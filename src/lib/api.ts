@@ -40,6 +40,21 @@ export interface UserData {
     waist_circumference?: number | null;
     [key: string]: number | null | undefined; // future-proof
   };
+
+  current_subscription?: {
+    id: number;
+    status: 'pending' | 'active' | 'declined' | 'expired';
+    start_date?: string;
+    end_date?: string;
+    is_expired?: boolean;
+    trainer?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+    requested_at: string;
+    responded_at?: string;
+  } | null;
 }
 
 export interface TrainerProfileData {
@@ -287,7 +302,8 @@ export interface Conversation {
 export type CombinedProfileData = UserData & TrainerProfileData;
 
 async function getAuthHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  // Only access localStorage on client-side, but don't create server/client branch
+  const token = localStorage.getItem('accessToken');
   if (!token) {
     throw new Error('NO_CREDENTIALS');
   }
@@ -296,7 +312,6 @@ async function getAuthHeaders() {
     Authorization: `Bearer ${token}`,
   };
 }
-
 
 export async function getUserData(): Promise<UserData> {
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
@@ -563,6 +578,24 @@ export async function sendMessage(recipientId: number, content: string): Promise
   return res.json();
 }
 
+export async function markConversationAsRead(otherUserId: number): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/api/messages/mark_conversation_read/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ other_user_id: otherUserId }),
+  });
+  if (!res.ok) throw new Error('Failed to mark conversation as read');
+}
+
+export async function getUnreadMessageCount(): Promise<number> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}/api/messages/unread_count/`, { headers });
+  if (!res.ok) throw new Error('Failed to fetch unread count');
+  const data = await res.json();
+  return data.count;
+}
+
 export async function fetchActiveClientCount(): Promise<number> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/trainer-profile/clients/`, {
@@ -771,9 +804,34 @@ export async function respondToSubscriptionRequest(
   status: 'active' | 'declined'
 ) {
   const endpoint = status === 'active' ? 'accept' : 'decline';
-  const res = await fetch(`${API_BASE_URL}/api/subscriptions/${id}/${endpoint}/`, {
-    method: 'POST',
-    headers: await getAuthHeaders(),
-  });
-  return res.ok ? await res.json() : { success: false };
+  const url = `${API_BASE_URL}/api/subscriptions/${id}/${endpoint}/`;
+  const headers = await getAuthHeaders();
+  
+  console.log('=== API REQUEST DEBUG ===');
+  console.log('URL:', url);
+  console.log('Headers:', headers);
+  console.log('Method: POST');
+  
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+    });
+
+    console.log('Response status:', res.status);
+    console.log('Response ok:', res.ok);
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('API Error Response:', errorData);
+      return { success: false, error: errorData };
+    }
+
+    const responseData = await res.json();
+    console.log('Success response:', responseData);
+    return responseData;
+  } catch (error) {
+    console.error('Network error:', error);
+    return { success: false, error: 'Network error' };
+  }
 }

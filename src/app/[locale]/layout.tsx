@@ -8,7 +8,7 @@ import { getMessages } from 'next-intl/server';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import { Toaster } from "@/components/ui/toaster";
-import '../globals.css'; // Path to globals.css from app/[locale]/ (relative to app root)
+import '../globals.css'; 
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Vibrafit', // This could be localized by fetching messages here if needed
+  title: 'Vibrafit', 
   description: 'Your personalized fitness journey tracker and motivator.',
 };
 
@@ -37,10 +37,10 @@ export default async function LocaleLayout({
   params
 }: {
   children: React.ReactNode;
-  params: {locale: string}; 
+  params: Promise<{locale: string}>;
 }) {
-  const { locale } = params;
-  const messages = await getMessages(); // Uses locale from context
+  const { locale } = await params; 
+  const messages = await getMessages();
 
   return (
     <div lang={locale} suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>

@@ -64,7 +64,7 @@ export default function TrainerDetailPage() {
   const [trainerPosts, setTrainerPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribing, setIsSubscribing] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false); // State to track current subscription
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'pending' | 'active'>('none');
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -93,7 +93,7 @@ export default function TrainerDetailPage() {
         });
         if (subStatusRes.ok) {
           const subStatusData = await subStatusRes.json();
-          setIsSubscribed(subStatusData.isSubscribed);
+          setSubscriptionStatus(subStatusData.status || 'none');
         } else {
           console.warn('Could not determine subscription status.');
         }
@@ -125,7 +125,7 @@ export default function TrainerDetailPage() {
 
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setMonth(startDate.getMonth() + 1); // example: 1-month duration
+    endDate.setMonth(startDate.getMonth() + 1);
 
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
@@ -152,7 +152,7 @@ export default function TrainerDetailPage() {
         description: t('toastSubscribedDescription', { trainerName: trainer.name }),
       });
 
-      setIsSubscribed(true); // optional, depending on how you define 'subscribed' at this point
+     setSubscriptionStatus('pending');
 
     } catch (error: any) {
       console.error("Subscription request error:", error);
@@ -300,28 +300,35 @@ export default function TrainerDetailPage() {
         </Tabs>
 
         <CardFooter className="border-t pt-6 flex flex-col items-center">
-            {isSubscribed ? (
-                 <div className="text-center">
-                    <p className="text-lg font-semibold text-green-600 flex items-center justify-center gap-2">
-                        <CheckCircle className="h-6 w-6"/> {t('subscribedMessage', { trainerName: trainer.name })}
-                    </p>
-                    <Link href="/user/dashboard" passHref>
-                        <Button variant="outline" className="mt-4">{t('goToDashboardButton')}</Button>
-                    </Link>
-                 </div>
-            ) : (
-                <>
-                    <p className="text-sm text-muted-foreground mb-4 text-center">
-                        {t('subscribePrompt', { trainerName: trainer.name })}
-                    </p>
-                    <Button size="lg"
-                        className="w-full md:w-auto bg-gradient-to-r from-primary to-teal-600 hover:from-primary/90 hover:to-teal-600/90 text-primary-foreground shadow-md"
-                        onClick={handleSubscribe} disabled={isSubscribing}>
-                        {isSubscribing ? t('subscribingButton') : t('subscribeButton', { trainerName: trainer.name })}
-                    </Button>
-                </>
-            )}
-        </CardFooter>
+          {subscriptionStatus === 'active' ? (
+              <div className="text-center">
+                  <p className="text-lg font-semibold text-green-600 flex items-center justify-center gap-2">
+                      <CheckCircle className="h-6 w-6"/> {t('subscribedMessage', { trainerName: trainer.name })}
+                  </p>
+                  <Link href="/user/dashboard" passHref>
+                      <Button variant="outline" className="mt-4">{t('goToDashboardButton')}</Button>
+                  </Link>
+              </div>
+          ) : subscriptionStatus === 'pending' ? (
+              <div className="text-center">
+                  <p className="text-lg font-semibold text-yellow-600 flex items-center justify-center gap-2">
+                      <Info className="h-6 w-6"/> Subscription Pending
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Your subscription request is awaiting trainer approval</p>
+              </div>
+          ) : (
+              <>
+                  <p className="text-sm text-muted-foreground mb-4 text-center">
+                      {t('subscribePrompt', { trainerName: trainer.name })}
+                  </p>
+                  <Button size="lg"
+                      className="w-full md:w-auto bg-gradient-to-r from-primary to-teal-600 hover:from-primary/90 hover:to-teal-600/90 text-primary-foreground shadow-md"
+                      onClick={handleSubscribe} disabled={isSubscribing}>
+                      {isSubscribing ? t('subscribingButton') : t('subscribeButton', { trainerName: trainer.name })}
+                  </Button>
+              </>
+          )}
+      </CardFooter>
       </Card>
     </div>
   );

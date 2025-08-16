@@ -44,11 +44,21 @@ export default function PendingRequestsPage() {
   const handleResponse = async (
     subscriptionId: number,
     clientId: number,
-    status: 'active' | 'declined'    // ← allow 'declined' (not 'rejected')
+    status: 'active' | 'declined'
   ) => {
     setIsResponding(subscriptionId);
+    
+    // Add debugging logs
+    console.log('=== DEBUG INFO ===');
+    console.log('Subscription ID:', subscriptionId);
+    console.log('Client ID:', clientId);
+    console.log('Status:', status);
+    console.log('Current user token:', localStorage.getItem('accessToken'));
+    
     try {
       const result = await respondToSubscriptionRequest(subscriptionId, status);
+      console.log('API Response:', result);
+      
       if (result.success) {
         setRequests(prev => prev.filter(req => req.id !== subscriptionId));
         toast({
@@ -59,12 +69,15 @@ export default function PendingRequestsPage() {
           }),
         });
       } else {
-        throw new Error('Failed to update status');
+        // Show the actual error from the backend
+        console.error('Backend error:', result.error);
+        throw new Error(result.error?.error || result.error?.detail || 'Failed to update status');
       }
-    } catch {
+    } catch (error: any) {
+      console.error('Full error:', error);
       toast({
         title: t('toastErrorTitle'),
-        description: t('toastErrorUpdate'),
+        description: error.message || t('toastErrorUpdate'),
         variant: "destructive"
       });
     } finally {
@@ -147,8 +160,10 @@ export default function PendingRequestsPage() {
                   onClick={() => handleResponse(req.id, req.client.id, 'declined')}
                   disabled={isResponding === req.id}
                 >
-                  {isResponding === req.id ? <Loader2 className="animate-spin" /> : <X className="h-4 w-4" />}
-                  {t('rejectButton')}
+                  <>
+                    {isResponding === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                    <span className="ml-2">{t('rejectButton')}</span>
+                  </>
                 </Button>
 
                 <Button
@@ -156,8 +171,10 @@ export default function PendingRequestsPage() {
                   onClick={() => handleResponse(req.id, req.client.id, 'active')}
                   disabled={isResponding === req.id}
                 >
-                  {isResponding === req.id ? <Loader2 className="animate-spin" /> : <Check className="h-4 w-4" />}
-                  {t('approveButton')}
+                  <>
+                    {isResponding === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    <span className="ml-2">{t('approveButton')}</span>
+                  </>
                 </Button>
               </CardFooter>
             </Card>
