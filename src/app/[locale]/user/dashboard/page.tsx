@@ -106,7 +106,7 @@ export default function UserDashboardPage() {
    const [mealHistory, setMealHistory] = useState<LoggedMeal[]>([]);
    const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
    const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
-   const [isClient, setIsClient] = useState(false);
+   const [isClient, setIsClient] = useState(false); 
 
    const [beforePhotoPreview, setBeforePhotoPreview] = useState<string | null>(null);
    const [currentPhotoPreview, setCurrentPhotoPreview] = useState<string | null>(null);
@@ -119,14 +119,45 @@ export default function UserDashboardPage() {
    const beforeFileInputRef = useRef<HTMLInputElement>(null);
    const currentFileInputRef = useRef<HTMLInputElement>(null);
 
+   type DynamicProfilePath = `/profile/${string}`;
+   
+   const trainerProfilePath: DynamicProfilePath | "/user/find-trainer" = (user?.current_subscription?.trainer?.id)
+     ? `/profile/${user.current_subscription.trainer.id}`
+     : "/user/find-trainer";
+
+   const todayCalories = mealHistory
+     .filter((meal: LoggedMeal) =>
+       format(new Date(meal.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+     )
+     .reduce((sum, meal) => sum + (meal.calories ?? 0), 0);
+
+   const workoutsThisWeek = dailyLogs
+     .filter((log: DailyLog) => {
+       const logDate = new Date(log.date);
+       return isWithinInterval(logDate, {
+         start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+         end: endOfWeek(new Date(), { weekStartsOn: 1 })
+       }) && Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
+     })
+     .length;
+ 
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   useEffect(() => {
+    if (!isClient) return; 
+
     const loadUserAndActivities = async () => {
       setIsLoadingUser(true);
       setIsLoadingFeed(true);
+      
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        router.push('/signin');
+        return;
+      }
+
       try {
         const data = await getUserData();
         setUser(data);
@@ -137,22 +168,19 @@ export default function UserDashboardPage() {
           setShowOnboarding(false);
         }
 
-        // Handle subscription and trainer data
         if (data.current_subscription) {
-            const subscription = data.current_subscription;
-            setSubscriptionStatus(subscription.status as 'active' | 'pending');
-            setSubscriptionId(subscription.id);
-            
-            // Set trainer name from subscription data
-            if (subscription.trainer) {
-                setTrainerName(subscription.trainer.name);
-            }
+          const subscription = data.current_subscription;
+          setSubscriptionStatus(subscription.status as 'active' | 'pending');
+          setSubscriptionId(subscription.id);
+          
+          if (subscription.trainer) {
+            setTrainerName(subscription.trainer.name);
+          }
         } else {
-            setSubscriptionStatus('none');
-            setSubscriptionId(null);
-            setTrainerName(null);
+          setSubscriptionStatus('none');
+          setSubscriptionId(null);
+          setTrainerName(null);
         }
-      
       } catch (err: any) {      
         if (err.message === 'NO_CREDENTIALS' || err.message === 'UNAUTHORIZED') {
           localStorage.clear();
@@ -171,9 +199,11 @@ export default function UserDashboardPage() {
     };
 
     loadUserAndActivities();
-  }, [router, toast, t]);
+  }, [isClient, router, toast, t]);
 
   useEffect(() => {
+    if (!isClient) return; 
+    
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
@@ -188,9 +218,11 @@ export default function UserDashboardPage() {
         console.error("Failed to fetch data:", err);
       }
     })();
-  }, []);
+  }, [isClient]);
 
   useEffect(() => {
+    if (!isClient) return; 
+    
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
@@ -202,25 +234,10 @@ export default function UserDashboardPage() {
         console.error('Failed to fetch recent activity:', err);
       }
     })();
-  }, []);
+  }, [isClient]);
 
-  const todayCalories = mealHistory
-    .filter((meal: LoggedMeal) =>
-      format(new Date(meal.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-    )
-    .reduce((sum, meal) => sum + (meal.calories ?? 0), 0);
-
-  const workoutsThisWeek = dailyLogs
-    .filter((log: DailyLog) => {
-      const logDate = new Date(log.date);
-      return isWithinInterval(logDate, {
-        start: startOfWeek(new Date(), { weekStartsOn: 1 }),
-        end: endOfWeek(new Date(), { weekStartsOn: 1 })
-      }) && Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
-    })
-    .length;
   const handleCancelSubscription = async () => {
-    if (!subscriptionId) return;
+    if (!subscriptionId || !isClient) return;
     
     const token = localStorage.getItem('accessToken');
     if (!token) return;
@@ -274,67 +291,67 @@ export default function UserDashboardPage() {
     }
   };
 
-   const handlePhotoUpload = async (
-        event: React.ChangeEvent<HTMLInputElement>,
-        photoType: 'before' | 'current'
-    ) => {
-        const file = event.target.files?.[0];
-        if (!file || !user) return;
+  const handlePhotoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    photoType: 'before' | 'current'
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !user || !isClient) return;
 
-        const setIsUploading = photoType === 'before' ? setIsUploadingBefore : setIsUploadingCurrent;
-        const setPreview = photoType === 'before' ? setBeforePhotoPreview : setCurrentPhotoPreview;
-        const dbField = photoType === 'before' ? 'beforePhotoUrl' : 'currentPhotoUrl';
+    const setIsUploading = photoType === 'before' ? setIsUploadingBefore : setIsUploadingCurrent;
+    const setPreview = photoType === 'before' ? setBeforePhotoPreview : setCurrentPhotoPreview;
+    const dbField = photoType === 'before' ? 'beforePhotoUrl' : 'currentPhotoUrl';
 
-        setIsUploading(true);
-        const tempPreviewUrl = URL.createObjectURL(file);
-        setPreview(tempPreviewUrl);
+    setIsUploading(true);
+    const tempPreviewUrl = URL.createObjectURL(file);
+    setPreview(tempPreviewUrl);
 
-        try {
-            const result = await uploadProgressPhoto(user.id.toString(), photoType, file);
-            if (result.success && result.newUrl) {
-                setUser(prev => prev ? { ...prev, [dbField]: result.newUrl } : null);
-                toast({ title: t('photoUpdatedToastTitle', { photoType: photoType.charAt(0).toUpperCase() + photoType.slice(1) }), description: t('photoUpdatedToastDescription') });
-            } else {
-                toast({ title: t('uploadFailedToastTitle'), description: t('uploadFailedToastDescription'), variant: "destructive" });
-                setPreview(user[dbField as keyof UserData] as string | null); 
-                URL.revokeObjectURL(tempPreviewUrl);
-            }
-        } catch (error) {
-            console.error(`Failed to upload ${photoType} photo:`, error);
-            toast({ title: t('errorUnexpected'), variant: "destructive" });
-            setPreview(user[dbField as keyof UserData] as string | null);
-            URL.revokeObjectURL(tempPreviewUrl);
-        } finally {
-            setIsUploading(false);
-            if (event.target) event.target.value = "";
-        }
-    };
+    try {
+      const result = await uploadProgressPhoto(user.id.toString(), photoType, file);
+      if (result.success && result.newUrl) {
+        setUser(prev => prev ? { ...prev, [dbField]: result.newUrl } : null);
+        toast({ title: t('photoUpdatedToastTitle', { photoType: photoType.charAt(0).toUpperCase() + photoType.slice(1) }), description: t('photoUpdatedToastDescription') });
+      } else {
+        toast({ title: t('uploadFailedToastTitle'), description: t('uploadFailedToastDescription'), variant: "destructive" });
+        setPreview(user[dbField as keyof UserData] as string | null); 
+        URL.revokeObjectURL(tempPreviewUrl);
+      }
+    } catch (error) {
+      console.error(`Failed to upload ${photoType} photo:`, error);
+      toast({ title: t('errorUnexpected'), variant: "destructive" });
+      setPreview(user[dbField as keyof UserData] as string | null);
+      URL.revokeObjectURL(tempPreviewUrl);
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = "";
+    }
+  };
 
-   if (isLoadingUser || !user) {
-     return (
-        <div className="space-y-8 animate-pulse">
-            <div className="h-10 w-1/2 bg-muted rounded"></div>
-            <div className="h-24 bg-muted rounded"></div>
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="grid gap-6 md:grid-cols-3">
-                <div className="h-24 bg-muted rounded"></div>
-                <div className="h-24 bg-muted rounded"></div>
-                <div className="h-24 bg-muted rounded"></div>
-            </div>
-            <div className="h-64 bg-muted rounded"></div>
-            <div className="h-64 bg-muted rounded"></div> 
-            <div className="h-40 bg-muted rounded"></div> 
+  if (!isClient || isLoadingUser || !user) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        <div className="h-10 w-1/2 bg-muted rounded"></div>
+        <div className="h-24 bg-muted rounded"></div>
+        <div className="h-32 bg-muted rounded"></div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="h-24 bg-muted rounded"></div>
+          <div className="h-24 bg-muted rounded"></div>
+          <div className="h-24 bg-muted rounded"></div>
         </div>
-     );
-   }
+        <div className="h-64 bg-muted rounded"></div>
+        <div className="h-64 bg-muted rounded"></div> 
+        <div className="h-40 bg-muted rounded"></div> 
+      </div>
+    );
+  }
    
   return (
     <div className="space-y-8">
-        <OnboardingModal
-            isOpen={showOnboarding}
-            onClose={handleOnboardingComplete}
-            userId={user.id.toString()}
-        />
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={handleOnboardingComplete}
+        userId={user.id.toString()}
+      />
 
       <h1 className="text-3xl font-bold">{t('welcomeBack', { name: user.name || "User" })}</h1>
 
@@ -348,100 +365,100 @@ export default function UserDashboardPage() {
 
       <Card className="shadow-md bg-gradient-to-r from-teal-500 to-primary hover:shadow-lg transition-shadow">
         <CardHeader>
-            <CardTitle className="text-2xl text-primary-foreground flex items-center gap-2">
-                <Play className="h-7 w-7" /> {t('readyForWorkoutTitle')}
-            </CardTitle>
-            <CardDescription className="text-teal-100">
-                {t('readyForWorkoutDescription')}
-            </CardDescription>
+          <CardTitle className="text-2xl text-primary-foreground flex items-center gap-2">
+            <Play className="h-7 w-7" /> {t('readyForWorkoutTitle')}
+          </CardTitle>
+          <CardDescription className="text-teal-100">
+            {t('readyForWorkoutDescription')}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-             <Link href="/user/workouts" passHref>
-                <Button size="lg" variant="secondary" className="w-full md:w-auto shadow-md hover:bg-white/90 text-primary font-semibold">
-                    {t('goToWorkoutsButton')}
-                </Button>
-            </Link>
+          <Link href="/user/workouts" passHref>
+            <Button size="lg" variant="secondary" className="w-full md:w-auto shadow-md hover:bg-white/90 text-primary font-semibold">
+              {t('goToWorkoutsButton')}
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
       <Card className="shadow-md">
         <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5 text-primary" /> {t('progressPicturesTitle')}
-            </CardTitle>
-            <CardDescription>{t('progressPicturesDescription')}</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Camera className="h-5 w-5 text-primary" /> {t('progressPicturesTitle')}
+          </CardTitle>
+          <CardDescription>{t('progressPicturesDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-                <Label htmlFor="before-photo-input" className="text-lg font-semibold">{t('beforeLabel')}</Label>
-                <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                    <Image
-                        src={beforePhotoPreview || user.beforePhotoUrl || "https://placehold.co/400x400.png"}
-                        alt={t('beforePhotoAlt')}
-                        fill
-                        style={{objectFit:"cover"}}
-                        className={isUploadingBefore ? 'opacity-50' : ''}
-                        data-ai-hint="fitness before"
-                        unoptimized
-                    />
-                    {isUploadingBefore && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
-                </div>
-                <input
-                    type="file"
-                    id="before-photo-input"
-                    ref={beforeFileInputRef}
-                    accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handlePhotoUpload(e, 'before')}
-                    className="hidden"
-                    disabled={isUploadingBefore}
-                />
-                <Button
-                    onClick={() => beforeFileInputRef.current?.click()}
-                    variant="outline"
-                    className="w-full"
-                    disabled={isUploadingBefore}
-                >
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    {isUploadingBefore ? t('uploadingButton') : (user.beforePhotoUrl || beforePhotoPreview ? t('changeBeforeButton') : t('uploadBeforeButton'))}
-                </Button>
+          <div className="space-y-3">
+            <Label htmlFor="before-photo-input" className="text-lg font-semibold">{t('beforeLabel')}</Label>
+            <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+              <Image
+                src={beforePhotoPreview || user.beforePhotoUrl || "https://placehold.co/400x400.png"}
+                alt={t('beforePhotoAlt')}
+                fill
+                style={{objectFit:"cover"}}
+                className={isUploadingBefore ? 'opacity-50' : ''}
+                data-ai-hint="fitness before"
+                unoptimized
+              />
+              {isUploadingBefore && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
             </div>
+            <input
+              type="file"
+              id="before-photo-input"
+              ref={beforeFileInputRef}
+              accept="image/png, image/jpeg, image/gif"
+              onChange={(e) => handlePhotoUpload(e, 'before')}
+              className="hidden"
+              disabled={isUploadingBefore}
+            />
+            <Button
+              onClick={() => beforeFileInputRef.current?.click()}
+              variant="outline"
+              className="w-full"
+              disabled={isUploadingBefore}
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              {isUploadingBefore ? t('uploadingButton') : (user.beforePhotoUrl || beforePhotoPreview ? t('changeBeforeButton') : t('uploadBeforeButton'))}
+            </Button>
+          </div>
 
-            <div className="space-y-3">
-                <Label htmlFor="current-photo-input" className="text-lg font-semibold">{t('currentLabel')}</Label>
-                 <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                    <Image
-                        src={currentPhotoPreview || user.currentPhotoUrl || "https://placehold.co/400x400.png"}
-                        alt={t('currentPhotoAlt')}
-                        fill
-                        style={{objectFit:"cover"}}
-                        className={isUploadingCurrent ? 'opacity-50' : ''}
-                        data-ai-hint="fitness after"
-                        unoptimized
-                    />
-                    {isUploadingCurrent && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
-                </div>
-                <input
-                    type="file"
-                    id="current-photo-input"
-                    ref={currentFileInputRef}
-                    accept="image/png, image/jpeg, image/gif"
-                    onChange={(e) => handlePhotoUpload(e, 'current')}
-                    className="hidden"
-                    disabled={isUploadingCurrent}
-                />
-                <Button
-                    onClick={() => currentFileInputRef.current?.click()}
-                    variant="outline"
-                    className="w-full"
-                    disabled={isUploadingCurrent}
-                >
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                     {isUploadingCurrent ? t('uploadingButton') : (user.currentPhotoUrl || currentPhotoPreview ? t('updateCurrentButton') : t('uploadCurrentButton'))}
-                </Button>
+          <div className="space-y-3">
+            <Label htmlFor="current-photo-input" className="text-lg font-semibold">{t('currentLabel')}</Label>
+            <div className="aspect-square w-full bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+              <Image
+                src={currentPhotoPreview || user.currentPhotoUrl || "https://placehold.co/400x400.png"}
+                alt={t('currentPhotoAlt')}
+                fill
+                style={{objectFit:"cover"}}
+                className={isUploadingCurrent ? 'opacity-50' : ''}
+                data-ai-hint="fitness after"
+                unoptimized
+              />
+              {isUploadingCurrent && <UploadCloud className="h-12 w-12 text-primary animate-pulse absolute" />}
             </div>
+            <input
+              type="file"
+              id="current-photo-input"
+              ref={currentFileInputRef}
+              accept="image/png, image/jpeg, image/gif"
+              onChange={(e) => handlePhotoUpload(e, 'current')}
+              className="hidden"
+              disabled={isUploadingCurrent}
+            />
+            <Button
+              onClick={() => currentFileInputRef.current?.click()}
+              variant="outline"
+              className="w-full"
+              disabled={isUploadingCurrent}
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              {isUploadingCurrent ? t('uploadingButton') : (user.currentPhotoUrl || currentPhotoPreview ? t('updateCurrentButton') : t('uploadCurrentButton'))}
+            </Button>
+          </div>
         </CardContent>
         <CardFooter>
-            <p className="text-xs text-muted-foreground">{t('photoShareDisclaimer')}</p>
+          <p className="text-xs text-muted-foreground">{t('photoShareDisclaimer')}</p>
         </CardFooter>
       </Card>
 
@@ -456,7 +473,7 @@ export default function UserDashboardPage() {
               {user?.metrics?.weight ? `${user.metrics.weight} kg` : '-- kg'}
             </div>
             <Link href="/user/measurements" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('updateInMeasurementsLink')}</Button>
+              <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('updateInMeasurementsLink')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -468,11 +485,11 @@ export default function UserDashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{workoutsThisWeek || '--'}</div>
             <Link href="/user/workouts" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInWorkoutsLink')}</Button>
+              <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInWorkoutsLink')}</Button>
             </Link>
           </CardContent>
         </Card>
-         <Card className="shadow-sm">
+        <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('caloriesTodayCardTitle')}</CardTitle>
             <Apple className="h-4 w-4 text-muted-foreground" />
@@ -480,7 +497,7 @@ export default function UserDashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{todayCalories || '----'}</div>
             <Link href="/user/nutrition" passHref>
-                <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInNutritionLink')}</Button>
+              <Button variant="link" size="sm" className="text-xs p-0 h-auto">{t('logInNutritionLink')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -488,25 +505,16 @@ export default function UserDashboardPage() {
         <Card className="shadow-sm">
           <CardHeader className="flex items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
-              {!isClient ? t('findTrainerCardTitle') : (
-                subscriptionStatus === 'active' ? t('yourTrainerCardTitle') : 
-                subscriptionStatus === 'pending' ? 'Subscription Pending' : 
-                subscriptionStatus === 'expired' ? 'Subscription Expired' :
-                subscriptionStatus === 'declined' ? 'Subscription Declined' :
-                t('findTrainerCardTitle')
-              )}
+              {subscriptionStatus === 'active' ? t('yourTrainerCardTitle') : 
+               subscriptionStatus === 'pending' ? 'Subscription Pending' : 
+               subscriptionStatus === 'expired' ? 'Subscription Expired' :
+               subscriptionStatus === 'declined' ? 'Subscription Declined' :
+               t('findTrainerCardTitle')}
             </CardTitle>
             <UserPlus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {!isClient ? (
-              // Show loading state during hydration
-              <div className="space-y-2">
-                <div className="h-4 bg-muted rounded animate-pulse"></div>
-                <div className="h-8 bg-muted rounded animate-pulse"></div>
-              </div>
-            ) : subscriptionStatus === 'active' ? (
-              // Client has an active subscription and assigned trainer
+            {subscriptionStatus === 'active' ? (
               <>
                 <div className="text-lg font-bold">
                   {trainerName || t('loadingTrainer')}
@@ -514,14 +522,16 @@ export default function UserDashboardPage() {
                 <p className="text-xs text-muted-foreground">
                   {t('youAreConnected')}
                 </p>
-                <Button asChild variant="link" size="sm" className="text-xs p-0 h-auto mt-1">
-                  <Link href={`/profile/${user.current_subscription?.trainer?.id}` as any}>
-                    {t('viewTrainerProfileLink')}
-                  </Link>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-xs p-0 h-auto mt-1"
+                  onClick={() => router.push(trainerProfilePath as any)}
+                >
+                  {t('viewTrainerProfileLink')}
                 </Button>
               </>
             ) : subscriptionStatus === 'pending' ? (
-              // Client has a pending subscription request
               <>
                 <div className="text-sm font-semibold text-yellow-600 mb-2">
                   Subscription request to <span className="font-bold">{trainerName}</span> is pending approval
@@ -540,7 +550,6 @@ export default function UserDashboardPage() {
                 </Button>
               </>
             ) : subscriptionStatus === 'expired' ? (
-              // Subscription has expired
               <>
                 <div className="text-sm font-semibold text-red-600 mb-2">
                   Your subscription with <span className="font-bold">{trainerName}</span> has expired
@@ -552,7 +561,6 @@ export default function UserDashboardPage() {
                 </Link>
               </>
             ) : subscriptionStatus === 'declined' ? (
-              // Subscription was declined
               <>
                 <div className="text-sm font-semibold text-red-600 mb-2">
                   Your subscription request was declined
@@ -564,7 +572,6 @@ export default function UserDashboardPage() {
                 </Link>
               </>
             ) : (
-              // Client has no subscription - show find trainer option
               <>
                 <div className="text-sm text-muted-foreground mb-2">
                   {t('getPersonalizedGuidance')}
@@ -580,26 +587,26 @@ export default function UserDashboardPage() {
         </Card>
       </div>
 
-       <Card className="shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>{t('weightProgressCardTitle')}</CardTitle>
           <CardDescription>{t('weightProgressDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-           <ProgressOverviewChart />
+          <ProgressOverviewChart />
         </CardContent>
       </Card>
 
-       <Card className="shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>{t('recentActivityCardTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-           {isLoadingFeed ? (
-               <div className="space-y-4"><div className="h-10 bg-muted rounded animate-pulse"></div><div className="h-10 bg-muted rounded animate-pulse"></div></div>
-           ) : (
-               <RecentActivityFeed activities={recentActivities} />
-           )}
+          {isLoadingFeed ? (
+            <div className="space-y-4"><div className="h-10 bg-muted rounded animate-pulse"></div><div className="h-10 bg-muted rounded animate-pulse"></div></div>
+          ) : (
+            <RecentActivityFeed activities={recentActivities} />
+          )}
         </CardContent>
       </Card>
     </div>

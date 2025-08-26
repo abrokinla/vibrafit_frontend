@@ -4,8 +4,8 @@ export const runtime = 'edge';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Target, Zap, BrainCircuit } from "lucide-react";
-import { Link } from '@/navigation'; // Use Link from new navigation config
+import { Users, ClipboardList, Building, Sparkles } from "lucide-react";
+import { Link } from '@/navigation';
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 
@@ -20,7 +20,7 @@ export default function Home() {
           className="text-4xl md:text-6xl font-bold mb-4 leading-tight animate-in fade-in slide-in-from-bottom-8 duration-700"
           dangerouslySetInnerHTML={{ __html: t.raw('heroTitle') }}
         />
-        <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
+        <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
           {t('heroSubtitle')}
         </p>
         <div className="flex justify-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-400">
@@ -35,52 +35,52 @@ export default function Home() {
         <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
             <div className="flex justify-center mb-4">
-              <Target className="h-12 w-12 text-accent" />
+              <Users className="h-12 w-12 text-accent" />
             </div>
-            <CardTitle>{t('featureProgressTrackerTitle')}</CardTitle>
+            <CardTitle>{t('featureForEveryoneTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {t('featureProgressTrackerDescription')}
+              {t('featureForEveryoneDescription')}
             </CardDescription>
           </CardContent>
         </Card>
         <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
             <div className="flex justify-center mb-4">
-              <BrainCircuit className="h-12 w-12 text-accent" />
+              <ClipboardList className="h-12 w-12 text-accent" />
             </div>
-            <CardTitle>{t('featureMotivatorTitle')}</CardTitle>
+            <CardTitle>{t('featureForTrainersTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {t('featureMotivatorDescription')}
+              {t('featureForTrainersDescription')}
             </CardDescription>
           </CardContent>
         </Card>
         <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
             <div className="flex justify-center mb-4">
-              <Zap className="h-12 w-12 text-accent" />
+              <Building className="h-12 w-12 text-accent" />
             </div>
-            <CardTitle>{t('featureMetricsTitle')}</CardTitle>
+            <CardTitle>{t('featureForGymsTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {t('featureMetricsDescription')}
+              {t('featureForGymsDescription')}
             </CardDescription>
           </CardContent>
         </Card>
         <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
             <div className="flex justify-center mb-4">
-              <CheckCircle className="h-12 w-12 text-accent" />
+              <Sparkles className="h-12 w-12 text-accent" />
             </div>
-            <CardTitle>{t('featureCleanInterfaceTitle')}</CardTitle>
+            <CardTitle>{t('featureCommunityTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CardDescription>
-              {t('featureCleanInterfaceDescription')}
+              {t('featureCommunityDescription')}
             </CardDescription>
           </CardContent>
         </Card>
@@ -108,6 +108,19 @@ export default function Home() {
         </div>
       </section>
 
+       {/* Dynamic Image Section */}
+      <section className="animate-in fade-in duration-1000 delay-600">
+         <Image
+            src="https://picsum.photos/1200/400"
+            alt={t('imageAltFitnessLifestyle')}
+            width={1200}
+            height={400}
+            className="rounded-lg object-cover w-full"
+            data-ai-hint="fitness workout health"
+            unoptimized
+          />
+      </section>
+      
       {/* Call to Action Section */}
       <section className="text-center py-16 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-500">
         <h2 className="text-3xl md:text-4xl font-bold mb-4">{t('ctaTitle')}</h2>
@@ -115,18 +128,6 @@ export default function Home() {
         <Link href="/signup" passHref>
           <Button size="lg">{t('signUpNowButton')}</Button>
         </Link>
-      </section>
-
-      {/* Placeholder Image Section (Optional) */}
-      <section className="animate-in fade-in duration-1000 delay-600">
-         <Image
-            src="https://picsum.photos/1200/400" // This image will not be localized by this setup
-            alt={t('imageAltFitnessLifestyle')}
-            width={1200}
-            height={400}
-            className="rounded-lg object-cover w-full"
-            data-ai-hint="fitness workout health"
-          />
       </section>
     </div>
   );

@@ -14,10 +14,35 @@ import { useTranslations } from 'next-intl';
 
 const API_BASE_URL = "https://vibrafit.onrender.com";
 
+interface ConversationData {
+  id: string;
+  user: {
+    id: string;
+    name: string;
+    profile_picture_url?: string;
+  };
+  last_message: string;
+  timestamp: string;
+  unread_count: number;
+}
+
+interface ConversationsResponse {
+  conversations: ConversationData[];
+  totalUnread: number;
+  conversationsWithUnread: ConversationData[];
+}
+
+interface TrainerData {
+  clientCount: number;
+  unreadMessages: number;
+  pendingActions: number;
+  conversationsWithUnread: ConversationData[];
+}
+
 // Updated API function specifically for trainer unread messages
 async function getTrainerUnreadMessageCount(): Promise<number> {
   try {
-    const token = localStorage.getItem('accessToken');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (!token) throw new Error('NO_CREDENTIALS');
     
     const headers = {
@@ -39,9 +64,9 @@ async function getTrainerUnreadMessageCount(): Promise<number> {
 }
 
 // Get detailed conversation data with unread counts
-async function getConversationsWithUnreadCounts() {
+async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse> {
   try {
-    const token = localStorage.getItem('accessToken');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     if (!token) throw new Error('NO_CREDENTIALS');
     
     const headers = {
@@ -52,62 +77,62 @@ async function getConversationsWithUnreadCounts() {
     const res = await fetch(`${API_BASE_URL}/api/messages/conversations/`, { headers });
     if (!res.ok) {
       console.error('Failed to fetch conversations:', await res.text());
-      return [];
+      // Return consistent structure even on error
+      return {
+        conversations: [],
+        totalUnread: 0,
+        conversationsWithUnread: []
+      };
     }
-    const conversations = await res.json();
     
-    // Calculate total unread messages
-    const totalUnread = conversations.reduce((sum: number, conv: any) => {
+    const conversations: ConversationData[] = await res.json();
+    const totalUnread = conversations.reduce((sum: number, conv: ConversationData) => {
       return sum + (conv.unread_count || 0);
     }, 0);
+    
+    // Filter conversations with unread messages
+    const conversationsWithUnread = conversations.filter((conv: ConversationData) => conv.unread_count > 0);
     
     return {
       conversations,
       totalUnread,
-      conversationsWithUnread: conversations.filter((conv: any) => conv.unread_count > 0)
+      conversationsWithUnread
     };
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    return { conversations: [], totalUnread: 0, conversationsWithUnread: [] };
+    // Always return consistent structure
+    return {
+      conversations: [],
+      totalUnread: 0,
+      conversationsWithUnread: []
+    };
   }
 }
 
 export default function TrainerDashboardPage() {
   const t = useTranslations('TrainerDashboardPage');
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const router = useRouter();
-  const [trainerData, setTrainerData] = useState({
+  const [trainerData, setTrainerData] = useState<TrainerData>({
     clientCount: 0,
     unreadMessages: 0,
     pendingActions: 0,
-    conversationsWithUnread: [] as any[],
+    conversationsWithUnread: [],
   });
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  // Function to refresh message counts
-  const refreshMessageCounts = async () => {
-    setIsLoadingMessages(true);
-    try {
-      const { totalUnread, conversationsWithUnread } = await getConversationsWithUnreadCounts();
-      
-      setTrainerData(prev => ({
-        ...prev,
-        unreadMessages: totalUnread,
-        conversationsWithUnread: conversationsWithUnread
-      }));
-      
-      console.log('Updated message counts:', { totalUnread, conversationsWithUnread });
-    } catch (error) {
-      console.error('Error refreshing message counts:', error);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
+  // Ensure client-side hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
+    if (!mounted) return; // Only run after client-side hydration
+
     const loadData = async () => {
       setIsLoadingUser(true);
       const token = localStorage.getItem('accessToken');
@@ -129,7 +154,6 @@ export default function TrainerDashboardPage() {
 
         try {
           clientCount = await fetchActiveClientCount();
-          console.log('Active Client Count:', clientCount);
         } catch (err: any) {
           console.error('Error fetching client count:', err);
           toast({
@@ -143,7 +167,6 @@ export default function TrainerDashboardPage() {
           const messageData = await getConversationsWithUnreadCounts();
           unreadMessages = messageData.totalUnread;
           conversationsWithUnread = messageData.conversationsWithUnread;
-          console.log('Message data:', messageData);
         } catch (err: any) {
           console.error('Error fetching message data:', err);
           toast({
@@ -156,7 +179,6 @@ export default function TrainerDashboardPage() {
         try {
           const pendingSubs = await fetchPendingSubscriptions();
           pendingActions = pendingSubs.length;
-          console.log('Pending Subscriptions:', pendingSubs);
         } catch (err: any) {
           console.error('Error fetching pending subscriptions:', err);
           toast({
@@ -188,19 +210,25 @@ export default function TrainerDashboardPage() {
       }
     };
     loadData();
-  }, [router, toast, t]);
+  }, [mounted, router, toast, t]);
 
-  // Refresh message counts when returning from messages page
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        refreshMessageCounts();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  // Show loading during hydration
+  if (!mounted) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        <div className="h-10 w-1/2 bg-muted rounded"></div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="h-24 bg-muted rounded"></div>
+          <div className="h-24 bg-muted rounded"></div>
+          <div className="h-24 bg-muted rounded"></div>
+          <div className="h-24 bg-muted rounded"></div>
+        </div>
+        <div className="h-64 bg-muted rounded"></div>
+        <div className="h-64 bg-muted rounded"></div>
+      </div>
+    );
+  }
+  
 
   const handleOnboardingClose = async () => {
     try {
@@ -217,7 +245,6 @@ export default function TrainerDashboardPage() {
   };
 
   const handleMessagesClick = () => {
-    // Mark that we're going to messages (you could also mark messages as read here)
     router.push('/trainer/messages');
   };
 
@@ -357,7 +384,10 @@ export default function TrainerDashboardPage() {
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => router.push(`/trainer/messages?user=${conversation.user?.id}`)}
+                      onClick={() => router.push({
+                        pathname: '/trainer/messages',
+                        query: { user: conversation.user?.id }
+                      })}
                     >
                       Reply
                     </Button>
@@ -399,4 +429,4 @@ export default function TrainerDashboardPage() {
       </Card>
     </div>
   );
-}
+} 

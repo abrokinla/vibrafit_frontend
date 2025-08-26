@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Link, useRouter } from '@/navigation'; 
 import { useTranslations } from 'next-intl';
+import { Building, User, Dumbbell, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function SignUpPage() {
   const t = useTranslations('SignUpPage');
@@ -87,36 +89,44 @@ export default function SignUpPage() {
       setError(err.message || t('errorSignup'));
     }
   };
+  
+  const RoleCard = ({ value, label, icon, currentRole }: { value: 'client' | 'trainer' | 'gym', label: string, icon: React.ReactNode, currentRole: string }) => {
+    const isSelected = value === currentRole;
+    return (
+      <Label
+        htmlFor={`role-${value}`}
+        className={cn(
+          "flex flex-col items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200",
+          isSelected ? "bg-primary/10 border-primary shadow-md" : "border-muted-foreground/20 hover:border-primary/50 hover:bg-accent/50"
+        )}
+      >
+        {icon}
+        <span className="font-semibold mt-2 text-sm">{label}</span>
+        <RadioGroupItem value={value} id={`role-${value}`} className="sr-only" />
+        {isSelected && <CheckCircle className="absolute top-2 right-2 h-5 w-5 text-primary" />}
+      </Label>
+    );
+  };
 
   return (
     <div className="flex justify-center items-center py-12">
-      <Card className="w-full max-w-md shadow-lg">
+      <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">{t('title')}</CardTitle>
           <CardDescription>{t('description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignUp} className="space-y-4">
-             <div className="space-y-2">
+          <form onSubmit={handleSignUp} className="space-y-6">
+             <div className="space-y-3">
                <Label>{t('roleLabel')}</Label>
                 <RadioGroup
-                    defaultValue="client"
                     value={role}
                     onValueChange={(value: 'client' | 'trainer' | 'gym') => setRole(value)}
-                    className="flex flex-col space-y-2 pt-2"
+                    className="grid grid-cols-3 gap-4"
                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="client" id="role-client" />
-                      <Label htmlFor="role-client">{t('roleUser')}</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="trainer" id="role-trainer" />
-                      <Label htmlFor="role-trainer">{t('roleTrainer')}</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="gym" id="role-gym" />
-                      <Label htmlFor="role-gym">{t('roleGym')}</Label>
-                    </div>
+                   <RoleCard value="client" label={t('roleUser')} icon={<User className="h-8 w-8 text-primary"/>} currentRole={role} />
+                   <RoleCard value="trainer" label={t('roleTrainer')} icon={<Dumbbell className="h-8 w-8 text-primary"/>} currentRole={role} />
+                   <RoleCard value="gym" label={t('roleGym')} icon={<Building className="h-8 w-8 text-primary"/>} currentRole={role} />
                 </RadioGroup>
              </div>
             
@@ -172,7 +182,7 @@ export default function SignUpPage() {
             <Button type="submit" className="w-full">{t('signUpButton')}</Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm">
+        <CardFooter className="text-center text-sm flex justify-center">
           <p>
             {t('hasAccountPrompt')}{' '}
             <Link href="/signin" className="text-primary hover:underline">

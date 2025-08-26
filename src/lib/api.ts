@@ -81,6 +81,27 @@ export type RoutinePlan = {
   trainer: number;
   nutrition: any;
 };
+
+// New Preset Routine Types
+export interface PresetExercise {
+    id: string; // client-side ID
+    name: string;
+    sets: string;
+    reps: string;
+    unit: 'reps' | 'seconds' | 'minutes';
+    notes?: string;
+    videoUrl?: string;
+    order: number;
+}
+
+export interface PresetRoutine {
+    id: number;
+    name: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+    exercises: PresetExercise[];
+    trainerId: number;
+}
+
 export interface ExerciseInput {
   id: string;
   name: string;
@@ -88,7 +109,9 @@ export interface ExerciseInput {
   reps: string;
   unit: 'reps' | 'seconds' | 'minutes';
   notes?: string;
+  videoUrl?: string; 
 }
+
 export interface RoutineAssignment {
   clientId: string;
   routineName: string;
@@ -148,9 +171,9 @@ export interface Post {
   content: string;
   imageUrl?: string | null;
   videoUrl?: string | null;
-  createdAt: string; // ISO date string
+  createdAt: string; 
   stats: PostStats;
-  isLiked: boolean; // Is it liked by the current user?
+  isLiked: boolean; 
 }
 
 export interface PublicProfileData {
@@ -235,6 +258,7 @@ export interface AdHocWorkout {
   description: string;
   date: Date;
 }
+
 export interface Exercise {
   id: string;
   exercise_id?: number;
@@ -254,6 +278,7 @@ export interface DailyUserRoutine {
   exercises: Exercise[];
   trainerNotes?: string;
 }
+
 export interface DailyLog {
   id: number;
   plan: number;
@@ -380,7 +405,6 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
     ...trainerData,
   };
 }
-
 
 export async function saveTrainerProfile(
   data: Partial<TrainerProfileData>
@@ -807,19 +831,12 @@ export async function respondToSubscriptionRequest(
   const url = `${API_BASE_URL}/api/subscriptions/${id}/${endpoint}/`;
   const headers = await getAuthHeaders();
   
-  console.log('=== API REQUEST DEBUG ===');
-  console.log('URL:', url);
-  console.log('Headers:', headers);
-  console.log('Method: POST');
   
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: headers,
     });
-
-    console.log('Response status:', res.status);
-    console.log('Response ok:', res.ok);
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -834,4 +851,259 @@ export async function respondToSubscriptionRequest(
     console.error('Network error:', error);
     return { success: false, error: 'Network error' };
   }
+}
+
+// Helper function to handle API responses
+const handleApiResponse = async (response: Response) => {
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      const text = await response.text().catch(() => '');
+      if (text) errorMessage = text;
+    }
+    throw new Error(errorMessage);
+  }
+
+  if (response.status === 204) {
+    return { success: true, message: 'Deleted successfully' };
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return { success: true, message: 'Operation completed successfully' };
+  }
+};
+
+
+/**
+ * Create a new preset routine
+ */
+export async function createPresetRoutine(
+  routineData: Omit<PresetRoutine, 'id' | 'trainerId'>
+): Promise<{ success: true; newPreset: PresetRoutine } | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(routineData),
+    });
+
+    const data = await handleApiResponse(response);
+    return data; // Should return { success: true, newPreset: PresetRoutine }
+  } catch (error) {
+    console.error('Error creating preset routine:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create preset routine'
+    };
+  }
+}
+
+/**
+ * Fetch all preset routines for the authenticated trainer
+ */
+export async function fetchPresetRoutines(): Promise<PresetRoutine[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/`, {
+      method: 'GET',
+      headers,
+    });
+
+    const data = await handleApiResponse(response);
+    return Array.isArray(data) ? data : data.results || [];
+  } catch (error) {
+    console.error('Error fetching preset routines:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to fetch preset routines');
+  }
+}
+
+/**
+ * Fetch preset routines by difficulty level
+ */
+export async function fetchPresetRoutinesByLevel(
+  level: 'beginner' | 'intermediate' | 'advanced'
+): Promise<PresetRoutine[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/level/${level}/`, {
+      method: 'GET',
+      headers,
+    });
+
+    const data = await handleApiResponse(response);
+    return data.presets || [];
+  } catch (error) {
+    console.error(`Error fetching ${level} preset routines:`, error);
+    throw new Error(error instanceof Error ? error.message : `Failed to fetch ${level} preset routines`);
+  }
+}
+
+/**
+ * Get a specific preset routine by ID
+ */
+export async function getPresetRoutine(id: number): Promise<PresetRoutine> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+      method: 'GET',
+      headers,
+    });
+
+    return await handleApiResponse(response);
+  } catch (error) {
+    console.error('Error fetching preset routine:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to fetch preset routine');
+  }
+}
+
+/**
+ * Update an existing preset routine
+ */
+export async function updatePresetRoutine(
+  id: number,
+  routineData: Omit<PresetRoutine, 'id' | 'trainerId'>
+): Promise<{ success: true; preset: PresetRoutine } | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(routineData),
+    });
+
+    const data = await handleApiResponse(response);
+    return data; // Should return { success: true, preset: PresetRoutine }
+  } catch (error) {
+    console.error('Error updating preset routine:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update preset routine'
+    };
+  }
+}
+
+/**
+ * Delete a preset routine
+ */
+export async function deletePresetRoutine(
+  id: number
+): Promise<{ success: true; message?: string } | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    const data = await handleApiResponse(response);
+    return data; // Will safely return { success: true, message: 'Deleted successfully' }
+  } catch (error) {
+    console.error('Error deleting preset routine:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete preset routine',
+    };
+  }
+}
+
+/**
+ * Duplicate an existing preset routine
+ */
+export async function duplicatePresetRoutine(
+  id: number
+): Promise<{ success: true; newPreset: PresetRoutine } | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/duplicate/`, {
+      method: 'POST',
+      headers,
+    });
+
+    const data = await handleApiResponse(response);
+    return data; // Should return { success: true, newPreset: PresetRoutine }
+  } catch (error) {
+    console.error('Error duplicating preset routine:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to duplicate preset routine'
+    };
+  }
+}
+
+/**
+ * Get preset routine statistics
+ */
+export async function getPresetRoutineStats(): Promise<{
+  success: true;
+  stats: {
+    total_presets: number;
+    by_level: {
+      beginner: number;
+      intermediate: number;
+      advanced: number;
+    };
+    total_exercises: number;
+  };
+} | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/stats/`, {
+      method: 'GET',
+      headers,
+    });
+
+    const data = await handleApiResponse(response);
+    return data;
+  } catch (error) {
+    console.error('Error fetching preset routine stats:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch stats'
+    };
+  }
+}
+
+/**
+ * Bulk delete preset routines
+ */
+export async function bulkDeletePresetRoutines(
+  ids: number[]
+): Promise<{ success: true; message: string } | { success: false; error: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/preset-routines/bulk-delete/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ids }),
+    });
+
+    const data = await handleApiResponse(response);
+    return data;
+  } catch (error) {
+    console.error('Error bulk deleting preset routines:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete presets'
+    };
+  }
+}
+
+// --- Forgot Password ---
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+  // MOCK: In a real app, this would call your backend endpoint.
+  // The backend would handle token generation and sending the email.
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  console.log(`Password reset requested for email: ${email}`);
+
+  // Simulate success regardless of whether the email exists to prevent email enumeration.
+  return {
+    success: true,
+    message: "If an account with this email exists, a password reset link has been sent.",
+  };
 }

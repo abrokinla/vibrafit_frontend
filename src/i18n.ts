@@ -2,13 +2,13 @@
 import { getRequestConfig } from 'next-intl/server';
 import { locales, defaultLocale } from './i18n-config';
 
-export default getRequestConfig(async ({ request }) => {
-  const requestLocale = request?.headers.get('x-next-intl-locale');
+export default getRequestConfig(async ({ requestLocale }) => {
+  const resolvedLocale = await requestLocale;
 
-  console.warn(`[next-intl] src/i18n.ts: getRequestConfig called with requestLocale: ${requestLocale}`);
+  console.warn(`[next-intl] src/i18n.ts: getRequestConfig called with requestLocale: ${resolvedLocale}`);
 
-  const currentLocaleToLoad = locales.includes(requestLocale as any)
-    ? (requestLocale as typeof locales[number])
+  const currentLocaleToLoad = locales.includes(resolvedLocale as any)
+    ? (resolvedLocale as typeof locales[number])
     : defaultLocale;
 
   try {

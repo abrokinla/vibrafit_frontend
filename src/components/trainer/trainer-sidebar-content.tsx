@@ -2,7 +2,7 @@
 'use client';
 
 import { Link, useRouter, usePathname } from '@/navigation'; 
-import { LayoutDashboard, ClipboardList, User, LogOut, Upload, MessageSquare, Users, BellRing } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, User, LogOut, Upload, MessageSquare, Users, BellRing, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,6 +40,7 @@ export default function TrainerSidebarContent() {
     { href: '/timeline', label: t('timeline'), icon: Users },
     { href: '/trainer/requests', label: t('pendingRequests'), icon: BellRing },
     { href: '/trainer/routines', label: t('clientRoutines'), icon: ClipboardList },
+    { href: '/trainer/presets', label: t('presetRoutines'), icon: Library },
     { href: '/trainer/messages', label: t('messages'), icon: MessageSquare },
     { href: '/trainer/profile', label: t('myProfile'), icon: User },
   ];

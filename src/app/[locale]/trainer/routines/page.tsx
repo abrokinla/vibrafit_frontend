@@ -2,17 +2,21 @@
 'use client';
 export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, PlusCircle, CalendarDays, Trash2, Save, ClipboardEdit, Dumbbell, Salad } from "lucide-react";
+import { User, PlusCircle, CalendarDays, Trash2, Save, ClipboardEdit, Dumbbell, Salad, Library, UploadCloud } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { RoutinePlan, ExerciseInput, RoutineAssignment, Meal, NutritionPlan } from "@/lib/api";
+import { RoutinePlan, ExerciseInput, RoutineAssignment, Meal, NutritionPlan, PresetRoutine, fetchPresetRoutines } from "@/lib/api";
 import { useTranslations } from 'next-intl';
+import { uploadTimelineMedia } from '@/lib/utils';
+
 
 export default function TrainerRoutinesPage() {
   const t = useTranslations('TrainerRoutinesPage');
@@ -22,7 +26,7 @@ export default function TrainerRoutinesPage() {
   const [startDate, setStartDate] = useState<string>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
   const [exercises, setExercises] = useState<ExerciseInput[]>([
-    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '' },
+    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -34,7 +38,34 @@ export default function TrainerRoutinesPage() {
   const today = new Date().toISOString().split("T")[0];
   const [nutritionStartDate, setnutritionStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const [presetLibrary, setPresetLibrary] = useState<PresetRoutine[]>([]);
+  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
+  const videoFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [uploadingVideoId, setUploadingVideoId] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function loadPresets() {
+      try {
+        const presets = await fetchPresetRoutines();
+
+        // Check if each preset has exercises
+        presets.forEach((preset, index) => {
+            console.log(`🔍 Preset ${index} (${preset.name}):`, {
+                id: preset.id,
+                name: preset.name,
+                level: preset.level,
+                exercises: preset.exercises,
+                exerciseCount: preset.exercises?.length || 0
+            });
+        });
+        setPresetLibrary(presets);
+        } catch (error) {
+            console.error('❌ Error loading presets:', error);
+            toast({ title: t('toastErrorTitle'), description: "Failed to load preset library.", variant: "destructive" });
+        }
+      }
+    loadPresets();
+  }, [toast, t]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -109,7 +140,7 @@ export default function TrainerRoutinesPage() {
     setStartDate(routine.startDate);
     setFrequency(routine.frequency as 'daily' | 'weekly' | 'custom');
     const allowedUnits = ['reps', 'seconds', 'minutes'] as const;
-    setExercises(routine.exercises.map((ex, index) => ({
+    setExercises(routine.exercises?.map((ex, index) => ({
       id: (ex as any).id?.toString() || Date.now().toString() + index, // Ensure ID is string
       ...ex,
       unit: allowedUnits.includes(ex.unit as any) ? (ex.unit as 'reps' | 'seconds' | 'minutes') : 'reps',
@@ -118,19 +149,19 @@ export default function TrainerRoutinesPage() {
   };
 
   const handleAddExercise = () => {
-    setExercises([...exercises, { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '' }]);
+    setExercises([...exercises, { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' }]);
   };
 
   const handleRemoveExercise = (id: string) => {
-    setExercises(exercises.filter(ex => ex.id !== id));
+    setExercises(exercises?.filter(ex => ex.id !== id));
   };
 
   const handleExerciseChange = (id: string, field: keyof ExerciseInput, value: string) => {
-    setExercises(exercises.map(ex => ex.id === id ? { ...ex, [field]: value } : ex));
+    setExercises(exercises?.map(ex => ex.id === id ? { ...ex, [field]: value } : ex));
   };
 
   const handleSaveRoutine = async () => {
-    if (!selectedClient || !routineName || !startDate || exercises.some(ex => !ex.name || !ex.sets || !ex.reps)) {
+    if (!selectedClient || !routineName || !startDate || exercises?.some(ex => !ex.name || !ex.sets || !ex.reps)) {
         toast({ title: t('toastMissingInfo'), description: t('toastMissingInfoDesc'), variant: "destructive" });
         return;
     }
@@ -147,12 +178,13 @@ export default function TrainerRoutinesPage() {
         routineName, 
         startDate, 
         frequency,
-        exercises: exercises.map(({ id, ...ex }) => ({ // Exclude client-side 'id' from payload
+        exercises: exercises?.map(({ id, ...ex }) => ({ // Exclude client-side 'id' from payload
             name: ex.name, 
             sets: ex.sets, 
             reps: ex.reps, 
             unit: ex.unit, 
-            notes: ex.notes || "" 
+            notes: ex.notes || "",
+            videoUrl: ex.videoUrl || ""
         })),
     };
 
@@ -191,7 +223,7 @@ export default function TrainerRoutinesPage() {
         setSelectedClient(null);
         setRoutineName('');
         setStartDate('');
-        setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '' }]);
+        setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' }]);
 
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
@@ -231,8 +263,6 @@ export default function TrainerRoutinesPage() {
     const token = localStorage.getItem('accessToken');
     if (!token) return null;
     try {
-      // Fetch all plans and find the relevant one for the client.
-      // This logic might need to be more sophisticated if a client can have multiple plans.
       const res = await fetch('https://vibrafit.onrender.com/api/plans/', { headers: { Authorization: `Bearer ${token}` }});
       if (!res.ok) throw new Error("Failed to fetch plans for nutrition linking");
       const plans: RoutinePlan[] = await res.json();
@@ -244,91 +274,184 @@ export default function TrainerRoutinesPage() {
     }
   };
 
-  const handleSaveNutritionPlan = async () => {
-  if (!selectedClient) {
+  const handleVideoUpload = async (exerciseId: string, file: File) => {
+  // 10MB size limit
+  const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+  if (file.size > maxSize) {
     toast({
-      title: t('toastMissingInfo'),
-      description: t('toastSelectClientForNutrition'),
-      variant: "destructive"
+      title: t('toastFileSizeErrorTitle') || 'File Too Large',
+      description: t('toastFileSizeErrorDesc') || 'Please select a file smaller than 10MB.',
+      variant: 'destructive'
     });
     return;
   }
 
-  if (nutritionItems.some(item => !item.time || !item.description)) {
-    toast({
-      title: t('toastMissingInfo'),
-      description: t('toastFillAllMealDetails'),
-      variant: "destructive"
-    });
-    return;
-  }
-
-  setIsSaving(true);
-  const token = localStorage.getItem("accessToken");
-  if (!token) {
-    toast({
-      title: t('toastAuthError'),
-      description: t('toastAuthErrorDesc'),
-      variant: "destructive"
-    });
-    setIsSaving(false);
-    return;
-  }
-
-  const planIdForNutrition = await fetchClientPlanIdForNutrition(Number(selectedClient));
-
-  if (!planIdForNutrition) {
-    toast({
-      title: t('toastNoRoutineFound'),
-      description: t('toastNoRoutineFoundDesc'),
-      variant: "destructive"
-    });
-    setIsSaving(false);
-    return;
-  }
-
-  const payload: Omit<NutritionPlan, 'id'> = {
-    plan: planIdForNutrition,
-    notes: "",
-    start_date: nutritionStartDate,
-    end_date: endDate,
-    meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal),
-  };
-
+  setUploadingVideoId(exerciseId);
   try {
-    const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err?.detail || JSON.stringify(err) || "Failed to save nutrition plan");
+    const uploadResult = await uploadTimelineMedia(file);
+    if (uploadResult.success && uploadResult.url) {
+      handleExerciseChange(exerciseId, 'videoUrl', uploadResult.url);
+      toast({
+        title: "Video uploaded successfully",
+        description: "The video has been added to the exercise."
+      });
+    } else {
+      throw new Error(uploadResult.error || 'Upload failed');
     }
-
-    const savedPlan: NutritionPlan = await res.json();
-    toast({
-      title: t('toastNutritionSaved'),
-      description: t('toastNutritionSavedDesc'),
-    });
-
-    setNutritionItems(savedPlan.meals.map(m => ({ ...m, id: m.id || Date.now() })));
-
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : t('toastNetworkErrorDesc');
+    console.error('Video upload failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to upload video. Please try again.';
     toast({
-      title: t('toastErrorSavingNutrition'),
+      title: "Upload failed",
       description: errorMessage,
       variant: "destructive"
     });
   } finally {
-    setIsSaving(false);
+    setUploadingVideoId(null);
+    // Reset the file input
+    if (videoFileRefs.current[exerciseId]) {
+      videoFileRefs.current[exerciseId]!.value = '';
+    }
   }
-};
+  };
+
+  const handleSaveNutritionPlan = async () => {
+    if (!selectedClient) {
+      toast({ title: t('toastMissingInfo'), description: t('toastSelectClientForNutrition'), variant: "destructive" });
+      return;
+    }
+
+    if (nutritionItems.some(item => !item.time || !item.description)) {
+      toast({ title: t('toastMissingInfo'), description: t('toastFillAllMealDetails'), variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      toast({ title: t('toastAuthError'), description: t('toastAuthErrorDesc'), variant: "destructive" });
+      setIsSaving(false);
+      return;
+    }
+
+    const planIdForNutrition = await fetchClientPlanIdForNutrition(Number(selectedClient));
+
+    if (!planIdForNutrition) {
+      toast({ title: t('toastNoRoutineFound'), description: t('toastNoRoutineFoundDesc'), variant: "destructive" });
+      setIsSaving(false);
+      return;
+    }
+
+    const payload: Omit<NutritionPlan, 'id'> = {
+      plan: planIdForNutrition,
+      notes: "",
+      start_date: nutritionStartDate,
+      end_date: endDate,
+      meals: nutritionItems.map(({ id, nutrition_plan, ...meal }) => meal),
+    };
+
+    try {
+      const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.detail || JSON.stringify(err) || "Failed to save nutrition plan");
+      }
+      const savedPlan: NutritionPlan = await res.json();
+      toast({ title: t('toastNutritionSaved'), description: t('toastNutritionSavedDesc') });
+      setNutritionItems(savedPlan.meals.map(m => ({ ...m, id: m.id || Date.now() })));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('toastNetworkErrorDesc');
+      toast({ title: t('toastErrorSavingNutrition'), description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+    const handleLoadFromPreset = (preset: PresetRoutine) => {
+      console.log('🔍 handleLoadFromPreset called with preset:', preset);
+      console.log('🔍 Preset exercises:', preset.exercises);
+      
+      setRoutineName(preset.name);
+      
+      // Check if exercises exist and have data
+      if (!preset.exercises || !Array.isArray(preset.exercises)) {
+          console.error('❌ No exercises found in preset or exercises is not an array:', preset.exercises);
+          toast({ 
+              title: "No exercises found", 
+              description: "This preset doesn't contain any exercises.",
+              variant: "destructive"
+          });
+          setIsPresetModalOpen(false);
+          return;
+      }
+      
+      if (preset.exercises.length === 0) {
+          console.warn('⚠️ Preset has empty exercises array');
+          toast({ 
+              title: "Empty preset", 
+              description: "This preset doesn't contain any exercises.",
+              variant: "destructive"
+          });
+          setIsPresetModalOpen(false);
+          return;
+      }
+      
+      // Map preset exercises to match ExerciseInput structure
+      const mappedExercises: ExerciseInput[] = preset.exercises.map((ex, index) => {
+          console.log(`🔍 Mapping exercise ${index}:`, ex);
+          
+          const mappedExercise = {
+              id: Date.now().toString() + index, // Create unique client-side ID
+              name: ex.name || '',
+              sets: ex.sets?.toString() || '1', // Convert number to string for form inputs
+              reps: ex.reps?.toString() || '1', // Convert number to string for form inputs
+              unit: (ex.unit as 'reps' | 'seconds' | 'minutes') || 'reps', // Ensure correct type
+              notes: ex.notes || '', // Ensure string, not null
+              videoUrl: ex.videoUrl || '' // Map video_url to videoUrl and ensure string
+          };
+          
+          console.log(`✅ Mapped exercise ${index}:`, mappedExercise);
+          return mappedExercise;
+      });
+      
+      console.log('🔍 Final mapped exercises:', mappedExercises);
+      
+      setExercises(mappedExercises);
+      setIsPresetModalOpen(false);
+      
+      toast({ 
+          title: `Preset '${preset.name}' loaded`, 
+          description: `Loaded ${mappedExercises.length} exercises. Select a client and start date to assign it.` 
+      });
+      
+      // Double-check the exercises state after setting
+      setTimeout(() => {
+          console.log('🔍 Exercises state after setting:', exercises);
+      }, 100);
+  };
+
+    const renderPresetList = (level: 'beginner' | 'intermediate' | 'advanced') => {
+        const filteredPresets = presetLibrary.filter(p => p.level === level);
+        if (filteredPresets.length === 0) return <p className="text-sm text-muted-foreground px-4 py-2">{t('noPresets')}</p>;
+        
+        return filteredPresets.map(preset => (
+          <div key={preset.id} className="mb-2 border rounded-lg p-3">
+             <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{preset.name}</p>
+                  <p className="text-xs text-muted-foreground">{preset.exercises?.length} exercises</p>
+                </div>
+                <Button size="sm" onClick={() => handleLoadFromPreset(preset)}>Select</Button>
+            </div>
+          </div>
+        ));
+    };
+
 
   return (
     <div className="space-y-8">
@@ -336,7 +459,36 @@ export default function TrainerRoutinesPage() {
       <p className="text-muted-foreground">{t('description')}</p>
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary"><ClipboardEdit className="h-6 w-6" /> {editingRoutineId ? t('editRoutineTitle') : t('newRoutineTitle')}</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2 text-primary"><ClipboardEdit className="h-6 w-6" /> {editingRoutineId ? t('editRoutineTitle') : t('newRoutineTitle')}</CardTitle>
+            <Dialog open={isPresetModalOpen} onOpenChange={setIsPresetModalOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline"><Library className="mr-2 h-4 w-4"/> {t('loadFromPreset')}</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>{t('loadPresetTitle')}</DialogTitle>
+                        <DialogDescription>{t('loadPresetDescription')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto p-1">
+                        <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+                          <AccordionItem value="item-1">
+                            <AccordionTrigger className="text-lg font-semibold">{t('levelBeginner')}</AccordionTrigger>
+                            <AccordionContent>{renderPresetList('beginner')}</AccordionContent>
+                          </AccordionItem>
+                          <AccordionItem value="item-2">
+                            <AccordionTrigger className="text-lg font-semibold">{t('levelIntermediate')}</AccordionTrigger>
+                            <AccordionContent>{renderPresetList('intermediate')}</AccordionContent>
+                          </AccordionItem>
+                          <AccordionItem value="item-3">
+                            <AccordionTrigger className="text-lg font-semibold">{t('levelAdvanced')}</AccordionTrigger>
+                            <AccordionContent>{renderPresetList('advanced')}</AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                    </div>
+                </DialogContent>
+            </Dialog>
+          </div>
           <CardDescription>{t('newRoutineDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -375,28 +527,134 @@ export default function TrainerRoutinesPage() {
                 <h3 className="text-lg font-semibold flex items-center gap-2"><Dumbbell className="h-5 w-5"/>{t('exercisesTitle')}</h3>
                 <Button variant="outline" size="sm" onClick={handleAddExercise} disabled={isSaving}><PlusCircle className="mr-2 h-4 w-4" /> {t('addExerciseButton')}</Button>
             </div>
-            {exercises.map((exercise, index) => (
+            {exercises?.map((exercise, index) => (
               <Card key={exercise.id} className="p-4 bg-secondary/30 relative shadow-sm border">
-                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveExercise(exercise.id)} disabled={isSaving || exercises.length === 1} aria-label={t('removeExerciseLabel')}><Trash2 className="h-4 w-4" /></Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive" 
+                  onClick={() => handleRemoveExercise(exercise.id)} 
+                  disabled={isSaving || exercises?.length === 1} 
+                  aria-label={t('removeExerciseLabel')}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                
                 <div className="grid md:grid-cols-3 gap-4 items-end">
                   <div className="space-y-1 md:col-span-2">
                     <Label htmlFor={`ex-name-${index}`}>{t('exerciseNameLabel')}</Label>
-                    <Input id={`ex-name-${index}`} placeholder={t('exerciseNamePlaceholder')} value={exercise.name} onChange={(e) => handleExerciseChange(exercise.id, 'name', e.target.value)} disabled={isSaving}/></div>
-                   <div className="space-y-1">
-                    <Label htmlFor={`ex-unit-${index}`}>{t('unitLabel')}</Label>
-                    <Select value={exercise.unit} onValueChange={(val: 'reps' | 'seconds' | 'minutes') => handleExerciseChange(exercise.id, 'unit', val)} disabled={isSaving}>
-                        <SelectTrigger id={`ex-unit-${index}`}><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="reps">{t('unitReps')}</SelectItem><SelectItem value="seconds">{t('unitSeconds')}</SelectItem><SelectItem value="minutes">{t('unitMinutes')}</SelectItem></SelectContent></Select></div></div>
-                <div className="grid md:grid-cols-2 gap-4 mt-3">
-                   <div className="space-y-1">
-                    <Label htmlFor={`ex-sets-${index}`}>{t('setsLabel')}</Label>
-                    <Input id={`ex-sets-${index}`} type="number" min="1" placeholder={t('setsPlaceholder')} value={exercise.sets} onChange={(e) => handleExerciseChange(exercise.id, 'sets', e.target.value)} disabled={isSaving}/></div>
+                    <Input 
+                      id={`ex-name-${index}`} 
+                      placeholder={t('exerciseNamePlaceholder')} 
+                      value={exercise.name} 
+                      onChange={(e) => handleExerciseChange(exercise.id, 'name', e.target.value)} 
+                      disabled={isSaving}
+                    />
+                  </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`ex-reps-${index}`}>{exercise.unit === 'reps' ? t('repsLabel') : t('durationPerSetLabel', { unit: exercise.unit.charAt(0).toUpperCase() + exercise.unit.slice(1) })}</Label>
-                    <Input id={`ex-reps-${index}`} type="number" min="1" placeholder={exercise.unit === 'reps' ? t('repsPlaceholder') : t('durationPlaceholder')} value={exercise.reps} onChange={(e) => handleExerciseChange(exercise.id, 'reps', e.target.value)} disabled={isSaving}/></div></div>
-                 <div className="mt-3 space-y-1">
-                    <Label htmlFor={`ex-notes-${index}`}>{t('notesLabel')}</Label>
-                    <Textarea id={`ex-notes-${index}`} placeholder={t('notesPlaceholder')} rows={2} value={exercise.notes || ''} onChange={(e) => handleExerciseChange(exercise.id, 'notes', e.target.value)} disabled={isSaving}/></div></Card>))}</div>
+                    <Label htmlFor={`ex-unit-${index}`}>{t('unitLabel')}</Label>
+                    <Select 
+                      value={exercise.unit} 
+                      onValueChange={(val: 'reps' | 'seconds' | 'minutes') => handleExerciseChange(exercise.id, 'unit', val)} 
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger id={`ex-unit-${index}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="reps">{t('unitReps')}</SelectItem>
+                        <SelectItem value="seconds">{t('unitSeconds')}</SelectItem>
+                        <SelectItem value="minutes">{t('unitMinutes')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid md:grid-cols-2 gap-4 mt-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`ex-sets-${index}`}>{t('setsLabel')}</Label>
+                    <Input 
+                      id={`ex-sets-${index}`} 
+                      type="number" 
+                      min="1" 
+                      placeholder={t('setsPlaceholder')} 
+                      value={exercise.sets} 
+                      onChange={(e) => handleExerciseChange(exercise.id, 'sets', e.target.value)} 
+                      disabled={isSaving}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`ex-reps-${index}`}>
+                      {exercise.unit === 'reps' ? t('repsLabel') : t('durationPerSetLabel', { unit: exercise.unit.charAt(0).toUpperCase() + exercise.unit.slice(1) })}
+                    </Label>
+                    <Input 
+                      id={`ex-reps-${index}`} 
+                      type="number" 
+                      min="1" 
+                      placeholder={exercise.unit === 'reps' ? t('repsPlaceholder') : t('durationPlaceholder')} 
+                      value={exercise.reps} 
+                      onChange={(e) => handleExerciseChange(exercise.id, 'reps', e.target.value)} 
+                      disabled={isSaving}
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor={`ex-notes-${index}`}>{t('notesLabel')}</Label>
+                  <Textarea 
+                    id={`ex-notes-${index}`} 
+                    placeholder={t('notesPlaceholder')} 
+                    rows={2} 
+                    value={exercise.notes || ''} 
+                    onChange={(e) => handleExerciseChange(exercise.id, 'notes', e.target.value)} 
+                    disabled={isSaving}
+                  />
+                </div>
+                
+                {/* Video URL section - NOW INSIDE the mapping loop */}
+                <div className="mt-3 space-y-1">
+                  <Label htmlFor={`ex-video-${index}`}>{t('videoUrlLabel')}</Label>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      id={`ex-video-url-${index}`}
+                      placeholder={t('videoUrlPlaceholder')}
+                      value={exercise.videoUrl || ''}
+                      onChange={(e) => handleExerciseChange(exercise.id, 'videoUrl', e.target.value)}
+                      disabled={isSaving || uploadingVideoId === exercise.id}
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => videoFileRefs.current[exercise.id]?.click()}
+                      disabled={isSaving || uploadingVideoId === exercise.id}
+                      aria-label="Upload video"
+                      title="Upload from computer"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                    </Button>
+
+                    <input
+                      type="file"
+                      className="hidden"
+                      ref={(el) => {
+                        videoFileRefs.current[exercise.id] = el;
+                      }}
+                      accept="video/mp4,video/webm,video/quicktime"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleVideoUpload(exercise.id, e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {uploadingVideoId === exercise.id && (
+                    <p className="text-xs text-muted-foreground">{t('uploading') || 'Uploading…'}</p>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
         </CardContent>
         <CardFooter><Button onClick={handleSaveRoutine} disabled={isSaving} className="w-full md:w-auto"><Save className="mr-2 h-4 w-4" />{isSaving ? t('savingRoutineButton') : (editingRoutineId ? t('updateRoutineButton') : t('saveRoutineButton'))}</Button></CardFooter></Card>
       
@@ -430,7 +688,7 @@ export default function TrainerRoutinesPage() {
                   </p>
 
                   <ul className="list-disc pl-5 mt-2 text-sm">
-                    {routine.exercises.map((ex, i) => (
+                    {routine.exercises?.map((ex, i) => (
                       <li key={`${ex.name}-${i}`}>
                         {ex.name} — {ex.sets} sets × {ex.reps} {ex.unit}
                       </li>
@@ -595,4 +853,3 @@ export default function TrainerRoutinesPage() {
     </div>
   );
 }
-

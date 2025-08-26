@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dumbbell, MessageSquare, Bell } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from 'next-intl';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 
 // Add these API functions
 const API_BASE_URL = "https://vibrafit.onrender.com";
@@ -22,7 +23,7 @@ async function getAuthHeaders() {
 async function getUnreadMessageCount(): Promise<number> {
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/api/messages/unread_count/`, { headers });
+    const res = await fetch(`${API_BASE_URL}/api/messages/unread-count/`, { headers });
     if (!res.ok) return 0;
     const data = await res.json();
     return data.count || 0;
@@ -30,18 +31,6 @@ async function getUnreadMessageCount(): Promise<number> {
     return 0;
   }
 }
-
-// async function getNotificationCount(): Promise<number> {
-//   try {
-//     const headers = await getAuthHeaders();
-//     const res = await fetch(`${API_BASE_URL}/api/notifications/unread_count/`, { headers });
-//     if (!res.ok) return 0;
-//     const data = await res.json();
-//     return data.count || 0;
-//   } catch {
-//     return 0;
-//   }
-// }
 
 // Badge component for counts
 function CountBadge({ count }: { count: number }) {
@@ -178,6 +167,7 @@ export default function Header() {
               </Link>
             </>
           )}
+          <ThemeSwitcher />
           <LanguageSwitcher />
         </nav>
       </div>

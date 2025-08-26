@@ -30,13 +30,11 @@ export default function TrainerRecentActivityFeed({ limit = 5 }: TrainerRecentAc
       setIsLoading(true);
       try {
         const logs = await fetchTrainerClientDailyLogs(limit);
-        console.log('Raw DailyLogs:', logs);
 
         const transformedActivities: Activity[] = logs
           .filter(log => {
             const hasExercise = Array.isArray(log.actual_exercise) && log.actual_exercise.length > 0;
             const hasNutrition = log.actual_nutrition && log.actual_nutrition.trim() !== '';
-            console.log(`Log ID ${log.id}: hasExercise=${hasExercise}, hasNutrition=${hasNutrition}, actual_exercise=${JSON.stringify(log.actual_exercise)}, actual_nutrition="${log.actual_nutrition}"`); // Debug
             return hasExercise || hasNutrition;
           })
           .map(log => {
@@ -65,10 +63,8 @@ export default function TrainerRecentActivityFeed({ limit = 5 }: TrainerRecentAc
           .sort((a, b) => b.date.getTime() - a.date.getTime())
           .slice(0, limit);
 
-        console.log('Transformed Activities:', transformedActivities); // Debug
         setActivities(transformedActivities);
       } catch (error: any) {
-        console.error('Error fetching daily logs:', error); // Debug
         toast({
           title: t('errorLoadActivity'),
           description: error.message || t('errorLoadActivityDescription'),

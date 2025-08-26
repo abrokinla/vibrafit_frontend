@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
     );
 
     const data = await response.json();
-    console.log("Gemini API raw response:", JSON.stringify(data, null, 2));
 
     const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
