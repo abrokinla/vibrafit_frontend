@@ -1,8 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
-function apiUrl(path: string) {
-  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
-}
+
 // src/app/[locale]/user/find-trainer/[trainerId]/page.tsx
 'use client';
 export const runtime = 'edge';  
@@ -21,8 +17,13 @@ import { useTranslations } from 'next-intl';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from "next/image";
 
-type TrainerProfile = CombinedProfileData; // Use your existing combined type
+type TrainerProfile = CombinedProfileData;
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 async function fetchTrainerById(trainerUserId: string, token: string | null): Promise<TrainerProfile | null> {
   if (!trainerUserId || !token) return null;
 
