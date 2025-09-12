@@ -12,7 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserData, UserData, fetchPendingSubscriptions, fetchConversations, fetchActiveClientCount } from '@/lib/api';
 import { useTranslations } from 'next-intl';
 
-const API_BASE_URL = "https://vibrafit.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 
 interface ConversationData {
   id: string;
@@ -50,7 +54,7 @@ async function getTrainerUnreadMessageCount(): Promise<number> {
       Authorization: `Bearer ${token}`,
     };
     
-    const res = await fetch(`${API_BASE_URL}/api/messages/unread_count/`, { headers });
+  const res = await fetch(apiUrl('/messages/unread_count/'), { headers });
     if (!res.ok) {
       console.error('Failed to fetch unread count:', await res.text());
       return 0;
@@ -74,7 +78,7 @@ async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse
       Authorization: `Bearer ${token}`,
     };
     
-    const res = await fetch(`${API_BASE_URL}/api/messages/conversations/`, { headers });
+  const res = await fetch(apiUrl('/messages/conversations/'), { headers });
     if (!res.ok) {
       console.error('Failed to fetch conversations:', await res.text());
       // Return consistent structure even on error
@@ -90,9 +94,15 @@ async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse
       return sum + (conv.unread_count || 0);
     }, 0);
     
-    // Filter conversations with unread messages
-    const conversationsWithUnread = conversations.filter((conv: ConversationData) => conv.unread_count > 0);
-    
+    // Filter and deduplicate conversations with unread messages by user id
+    const conversationsWithUnread = Object.values(
+      conversations.filter((conv: ConversationData) => conv.unread_count > 0)
+        .reduce((acc: Record<string, ConversationData>, conv: ConversationData) => {
+          acc[conv.user.id] = conv;
+          return acc;
+        }, {})
+    );
+
     return {
       conversations,
       totalUnread,

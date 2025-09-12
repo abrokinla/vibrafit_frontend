@@ -14,6 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { RoutinePlan, ExerciseInput, RoutineAssignment, Meal, NutritionPlan, PresetRoutine, fetchPresetRoutines } from "@/lib/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 import { useTranslations } from 'next-intl';
 import { uploadTimelineMedia } from '@/lib/utils';
 
@@ -26,7 +31,7 @@ export default function TrainerRoutinesPage() {
   const [startDate, setStartDate] = useState<string>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
   const [exercises, setExercises] = useState<ExerciseInput[]>([
-    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' },
+    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '' },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -46,19 +51,8 @@ export default function TrainerRoutinesPage() {
   useEffect(() => {
     async function loadPresets() {
       try {
-        const presets = await fetchPresetRoutines();
-
-        // Check if each preset has exercises
-        presets.forEach((preset, index) => {
-            console.log(`🔍 Preset ${index} (${preset.name}):`, {
-                id: preset.id,
-                name: preset.name,
-                level: preset.level,
-                exercises: preset.exercises,
-                exerciseCount: preset.exercises?.length || 0
-            });
-        });
-        setPresetLibrary(presets);
+  const presets = await fetchPresetRoutines();
+  setPresetLibrary(presets);
         } catch (error) {
             console.error('❌ Error loading presets:', error);
             toast({ title: t('toastErrorTitle'), description: "Failed to load preset library.", variant: "destructive" });
@@ -72,7 +66,7 @@ export default function TrainerRoutinesPage() {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
       try {
-        const res = await fetch('https://vibrafit.onrender.com/api/trainer-profile/clients/', {
+  const res = await fetch(apiUrl('/trainer-profile/clients/'), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch clients");
@@ -91,7 +85,7 @@ export default function TrainerRoutinesPage() {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
       try {
-        const res = await fetch('https://vibrafit.onrender.com/api/plans/', {
+  const res = await fetch(apiUrl('/plans/'), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch routines");
@@ -123,7 +117,7 @@ export default function TrainerRoutinesPage() {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
     try {
-      await fetch(`https://vibrafit.onrender.com/api/plans/${id}/`, {
+  await fetch(apiUrl(`/plans/${id}/`), {
         method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
       });
       setRoutines(prev => prev.filter(r => r.planId !== id));
@@ -149,7 +143,7 @@ export default function TrainerRoutinesPage() {
   };
 
   const handleAddExercise = () => {
-    setExercises([...exercises, { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' }]);
+    setExercises([...exercises, { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '' }]);
   };
 
   const handleRemoveExercise = (id: string) => {
@@ -173,24 +167,24 @@ export default function TrainerRoutinesPage() {
         return;
     }
 
-    const routinePayload = {
-        clientId: selectedClient,
-        routineName, 
-        startDate, 
-        frequency,
-        exercises: exercises?.map(({ id, ...ex }) => ({ // Exclude client-side 'id' from payload
-            name: ex.name, 
-            sets: ex.sets, 
-            reps: ex.reps, 
-            unit: ex.unit, 
-            notes: ex.notes || "",
-            videoUrl: ex.videoUrl || ""
-        })),
-    };
+  const routinePayload = {
+    clientId: selectedClient,
+    routineName, 
+    startDate, 
+    frequency,
+    exercises: exercises?.map(({ id, video_url, ...ex }) => ({
+      name: ex.name, 
+      sets: ex.sets, 
+      reps: ex.reps, 
+      unit: ex.unit, 
+      notes: ex.notes || "",
+      video_url: video_url || ""
+    })),
+  };
 
-    const url = editingRoutineId 
-        ? `https://vibrafit.onrender.com/api/plans/${editingRoutineId}/` 
-        : "https://vibrafit.onrender.com/api/plans/create-routine/";
+  const url = editingRoutineId 
+    ? apiUrl(`/plans/${editingRoutineId}/`) 
+    : apiUrl('/plans/create-routine/');
     const method = editingRoutineId ? "PUT" : "POST";
 
     try {
@@ -207,7 +201,7 @@ export default function TrainerRoutinesPage() {
         const savedRoutine = await response.json();
         
         // Refresh routines list
-        const updatedRoutinesRes = await fetch('https://vibrafit.onrender.com/api/plans/', { headers: { Authorization: `Bearer ${token}` } });
+  const updatedRoutinesRes = await fetch(apiUrl('/plans/'), { headers: { Authorization: `Bearer ${token}` } });
         const updatedRoutinesData = await updatedRoutinesRes.json();
         if (Array.isArray(updatedRoutinesData)) {
              setRoutines(updatedRoutinesData.map((routine: any) => ({
@@ -223,7 +217,7 @@ export default function TrainerRoutinesPage() {
         setSelectedClient(null);
         setRoutineName('');
         setStartDate('');
-        setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '' }]);
+        setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '' }]);
 
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
@@ -263,7 +257,7 @@ export default function TrainerRoutinesPage() {
     const token = localStorage.getItem('accessToken');
     if (!token) return null;
     try {
-      const res = await fetch('https://vibrafit.onrender.com/api/plans/', { headers: { Authorization: `Bearer ${token}` }});
+  const res = await fetch(apiUrl('/plans/'), { headers: { Authorization: `Bearer ${token}` }});
       if (!res.ok) throw new Error("Failed to fetch plans for nutrition linking");
       const plans: RoutinePlan[] = await res.json();
       const clientRoutinePlan = plans.find(p => p.client === clientId);
@@ -290,7 +284,7 @@ export default function TrainerRoutinesPage() {
   try {
     const uploadResult = await uploadTimelineMedia(file);
     if (uploadResult.success && uploadResult.url) {
-      handleExerciseChange(exerciseId, 'videoUrl', uploadResult.url);
+      handleExerciseChange(exerciseId, 'video_url', uploadResult.url);
       toast({
         title: "Video uploaded successfully",
         description: "The video has been added to the exercise."
@@ -351,7 +345,7 @@ export default function TrainerRoutinesPage() {
     };
 
     try {
-      const res = await fetch("https://vibrafit.onrender.com/api/nutrition-plan/", {
+  const res = await fetch(apiUrl('/nutrition-plan/'), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -373,67 +367,47 @@ export default function TrainerRoutinesPage() {
   };
   
     const handleLoadFromPreset = (preset: PresetRoutine) => {
-      console.log('🔍 handleLoadFromPreset called with preset:', preset);
-      console.log('🔍 Preset exercises:', preset.exercises);
-      
       setRoutineName(preset.name);
-      
+
       // Check if exercises exist and have data
       if (!preset.exercises || !Array.isArray(preset.exercises)) {
-          console.error('❌ No exercises found in preset or exercises is not an array:', preset.exercises);
-          toast({ 
-              title: "No exercises found", 
-              description: "This preset doesn't contain any exercises.",
-              variant: "destructive"
-          });
-          setIsPresetModalOpen(false);
-          return;
+        toast({ 
+          title: "No exercises found", 
+          description: "This preset doesn't contain any exercises.",
+          variant: "destructive"
+        });
+        setIsPresetModalOpen(false);
+        return;
       }
-      
       if (preset.exercises.length === 0) {
-          console.warn('⚠️ Preset has empty exercises array');
-          toast({ 
-              title: "Empty preset", 
-              description: "This preset doesn't contain any exercises.",
-              variant: "destructive"
-          });
-          setIsPresetModalOpen(false);
-          return;
+        toast({ 
+          title: "Empty preset", 
+          description: "This preset doesn't contain any exercises.",
+          variant: "destructive"
+        });
+        setIsPresetModalOpen(false);
+        return;
       }
-      
+
       // Map preset exercises to match ExerciseInput structure
-      const mappedExercises: ExerciseInput[] = preset.exercises.map((ex, index) => {
-          console.log(`🔍 Mapping exercise ${index}:`, ex);
-          
-          const mappedExercise = {
-              id: Date.now().toString() + index, // Create unique client-side ID
-              name: ex.name || '',
-              sets: ex.sets?.toString() || '1', // Convert number to string for form inputs
-              reps: ex.reps?.toString() || '1', // Convert number to string for form inputs
-              unit: (ex.unit as 'reps' | 'seconds' | 'minutes') || 'reps', // Ensure correct type
-              notes: ex.notes || '', // Ensure string, not null
-              videoUrl: ex.videoUrl || '' // Map video_url to videoUrl and ensure string
-          };
-          
-          console.log(`✅ Mapped exercise ${index}:`, mappedExercise);
-          return mappedExercise;
-      });
-      
-      console.log('🔍 Final mapped exercises:', mappedExercises);
-      
+      const mappedExercises: ExerciseInput[] = preset.exercises.map((ex, index) => ({
+        id: Date.now().toString() + index, // Create unique client-side ID
+        name: ex.name || '',
+        sets: ex.sets?.toString() || '1',
+        reps: ex.reps?.toString() || '1',
+        unit: (ex.unit as 'reps' | 'seconds' | 'minutes') || 'reps',
+        notes: ex.notes || '',
+        video_url: ex.video_url || ''
+      }));
+
       setExercises(mappedExercises);
       setIsPresetModalOpen(false);
-      
+
       toast({ 
-          title: `Preset '${preset.name}' loaded`, 
-          description: `Loaded ${mappedExercises.length} exercises. Select a client and start date to assign it.` 
+        title: `Preset '${preset.name}' loaded`, 
+        description: `Loaded ${mappedExercises.length} exercises. Select a client and start date to assign it.` 
       });
-      
-      // Double-check the exercises state after setting
-      setTimeout(() => {
-          console.log('🔍 Exercises state after setting:', exercises);
-      }, 100);
-  };
+    };
 
     const renderPresetList = (level: 'beginner' | 'intermediate' | 'advanced') => {
         const filteredPresets = presetLibrary.filter(p => p.level === level);
@@ -618,8 +592,8 @@ export default function TrainerRoutinesPage() {
                     <Input
                       id={`ex-video-url-${index}`}
                       placeholder={t('videoUrlPlaceholder')}
-                      value={exercise.videoUrl || ''}
-                      onChange={(e) => handleExerciseChange(exercise.id, 'videoUrl', e.target.value)}
+                      value={exercise.video_url || ''}
+                      onChange={(e) => handleExerciseChange(exercise.id, 'video_url', e.target.value)}
                       disabled={isSaving || uploadingVideoId === exercise.id}
                     />
                     <Button

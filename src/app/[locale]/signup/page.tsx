@@ -1,3 +1,4 @@
+
 // src/app/[locale]/signup/page.tsx
 "use client";
 export const runtime = 'edge';
@@ -13,6 +14,11 @@ import { useTranslations } from 'next-intl';
 import { Building, User, Dumbbell, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 export default function SignUpPage() {
   const t = useTranslations('SignUpPage');
   const router = useRouter();
@@ -47,8 +53,8 @@ export default function SignUpPage() {
       if (role === 'gym') {
         registrationPayload.gym_name = gymName;
       }
-      
-      const regRes = await fetch('https://vibrafit.onrender.com/api/users/register/', {
+
+      const regRes = await fetch(apiUrl('/users/register/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(registrationPayload),
@@ -61,8 +67,8 @@ export default function SignUpPage() {
       }
       const user = await regRes.json();
       localStorage.setItem('userId', user.id);
-      
-      const loginRes = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
+
+      const loginRes = await fetch(apiUrl('/auth/login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

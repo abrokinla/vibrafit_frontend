@@ -1,3 +1,8 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 // src/app/[locale]/user/find-trainer/page.tsx
 'use client';
 export const runtime = 'edge';
@@ -6,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Link } from '@/navigation'; 
+import Link from 'next/link';
 import { Briefcase, Zap, UserCircle, Star } from "lucide-react"; 
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';

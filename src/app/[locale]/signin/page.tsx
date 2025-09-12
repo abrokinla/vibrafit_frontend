@@ -1,6 +1,9 @@
+
 // src/app/[locale]/signin/page.tsx
 "use client";
 export const runtime = 'edge';
+
+
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,11 @@ import { useTranslations } from 'next-intl';
 import Image from "next/image";
 import { Separator } from '@/components/ui/separator';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 // Placeholder icons for social logins
 const GoogleIcon = () => <svg className="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.19,4.73C14.03,4.73 15.69,5.36 16.95,6.57L19.05,4.5C17.15,2.73 14.83,1.7 12.19,1.7C6.42,1.7 2.03,6.8 2.03,12C2.03,17.05 6.16,22.27 12.19,22.27C17.6,22.27 21.95,18.53 21.95,12.33C21.95,11.9 21.35,11.1 21.35,11.1V11.1Z" /></svg>;
 const XIcon = () => <svg className="h-5 w-5" viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>;
@@ -40,7 +48,7 @@ export default function SignInPage() {
     setIsSigningIn(true);
 
     try {
-      const response = await fetch('https://vibrafit.onrender.com/api/auth/login/', {
+  const response = await fetch(apiUrl('/auth/login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -58,7 +66,7 @@ export default function SignInPage() {
       localStorage.setItem('accessToken', access);
       localStorage.setItem('refreshToken', refresh);
   
-      const userProfileRes = await fetch('https://vibrafit.onrender.com/api/users/', {
+  const userProfileRes = await fetch(apiUrl('/users/'), {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${access}`,
@@ -91,7 +99,7 @@ export default function SignInPage() {
         targetPath = '/user/dashboard';
       }
       
-      router.push(targetPath);
+      router.push(targetPath as any);
 
     } catch (err: any) {
       setError(t('errorUnexpected'));
@@ -154,7 +162,7 @@ export default function SignInPage() {
             <div className="space-y-2">
                <div className="flex items-center justify-between">
                 <Label htmlFor="password">{t('passwordLabel')}</Label>
-                <Link href="#" className="text-sm text-primary hover:underline">
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
                   {t('forgotPasswordLink')}
                 </Link>
               </div>

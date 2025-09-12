@@ -1,6 +1,6 @@
 // src/components/user/onboarding-modal.tsx
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,13 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Camera, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { uploadProfilePicture } from '@/lib/utils';
 import Image from 'next/image';
-import { completeUserOnboarding, GoalPayload, UserData } from '@/lib/api';
-
-const interestsList = [
-    "Weight Loss", "Muscle Gain", "Strength Training", "Cardio", "HIIT", "Yoga",
-    "Pilates", "Running", "Cycling", "Swimming", "Bodybuilding", "CrossFit",
-    "Calisthenics", "Functional Training", "Nutrition", "Meal Prep", "Mindfulness", "Meditation"
-];
+import { completeUserOnboarding, GoalPayload, UserData, getInterests, createInterest } from '@/lib/api';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -44,10 +38,14 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
   const [country, setCountry] = useState('');
   const [stateValue, setStateValue] = useState('');
   const [goal, setGoal] = useState<Partial<GoalPayload>>({ description: '', target_value: '', target_date: '' });
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedInterests, setSelectedInterests] = useState<number[]>([]);
   const [metrics, setMetrics] = useState<{ weight: string; height: string }>({ weight: '', height: '' });
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+  const [trainingLevel, setTrainingLevel] = useState('');
+  const [interestsList, setInterestsList] = useState<{ id: number; name: string }[]>([]);
+  const [otherInterest, setOtherInterest] = useState('');
+
 
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -56,9 +54,19 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
   const handleBack = () => setStep(prev => Math.max(prev - 1, 1));
   const handleSkip = () => handleNext();
 
-  const toggleInterest = (interest: string) => {
+  useEffect(() => {
+    async function fetchInterests() {
+      const result = await getInterests();
+      if (result.success) {
+        setInterestsList(result.data);
+      }
+    }
+    if (isOpen) fetchInterests();
+  }, [isOpen]);
+
+  const toggleInterest = (interestId: number) => {
     setSelectedInterests(prev =>
-      prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]
+      prev.includes(interestId) ? prev.filter(i => i !== interestId) : [...prev, interestId]
     );
   };
 
@@ -83,13 +91,14 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
         }
       }
 
-      const onboardingData: Partial<UserData> & { interests: string[], goal?: Partial<GoalPayload> } = {
+      const onboardingData: Partial<UserData> & { interests: number[], goal?: Partial<GoalPayload> } = {
         name,
         country,
         state: stateValue,
-        interests: selectedInterests,
+        interests: selectedInterests.map(Number),
         profilePictureUrl: uploadedImageUrl,
-        goal: goal.description ? { ...goal, status: 'pending', user: parseInt(userId) } : undefined,
+        training_level: trainingLevel || undefined,
+        goal: goal.description ? { ...goal, user: parseInt(userId) } : undefined,
         metrics: {
           weight: metrics.weight ? parseFloat(metrics.weight) : undefined,
           height: metrics.height ? parseFloat(metrics.height) : undefined,
@@ -152,25 +161,69 @@ export default function OnboardingModal({ isOpen, onClose, userId }: OnboardingM
               <Label htmlFor="goal-date">{t('goalDateLabel')}</Label>
               <Input id="goal-date" type="date" value={goal.target_date} onChange={e => setGoal(g => ({ ...g, target_date: e.target.value }))} />
             </div>
+
+            {/* Training Level Section */}
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="training_level">Select your training level</Label>
+              <select
+                id="training_level"
+                value={trainingLevel}
+                onChange={e => setTrainingLevel(e.target.value)}
+                className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
+                <option value="">-- Choose your level --</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
           </div>
         );
       case 3: // Interests
         return (
-          <div className='space-y-4'>
-            <DialogDescription>{t('clientStep3Desc')}</DialogDescription>
-            <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
-              {interestsList.map(interest => (
-                <Badge
-                  key={interest}
-                  variant={selectedInterests.includes(interest) ? 'default' : 'secondary'}
-                  onClick={() => toggleInterest(interest)}
-                  className="cursor-pointer text-sm"
-                >
-                  {interest}
-                </Badge>
-              ))}
-            </div>
+          <>
+          <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
+            {interestsList.map(interest => (
+              <Badge
+                key={interest.id}
+                variant={selectedInterests.includes(interest.id) ? 'default' : 'secondary'}
+                onClick={() => toggleInterest(interest.id)}
+                className="cursor-pointer text-sm"
+              >
+                {interest.name}
+              </Badge>
+            ))}
           </div>
+
+          {/* Other Interest Input */}
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="other-interest">Other Interest</Label>
+            <Input
+              id="other-interest"
+              placeholder="Type your interest..."
+              value={otherInterest}
+              onChange={e => setOtherInterest(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (!otherInterest.trim()) return;
+
+                const result = await createInterest({ name: otherInterest.trim() });
+
+                if (result.success && result.data) {
+                  setInterestsList(prev => [...prev, result.data]);
+                  setSelectedInterests(prev => [...prev, result.data.id]);
+                  setOtherInterest('');
+                }
+              }}
+            >
+              Add
+            </Button>
+          </div>  
+          </>
         );
       case 4: // Metrics
         return (

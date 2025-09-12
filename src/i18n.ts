@@ -4,26 +4,17 @@ import { locales, defaultLocale } from './i18n-config';
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const resolvedLocale = await requestLocale;
-
-  console.warn(`[next-intl] src/i18n.ts: getRequestConfig called with requestLocale: ${resolvedLocale}`);
-
   const currentLocaleToLoad = locales.includes(resolvedLocale as any)
     ? (resolvedLocale as typeof locales[number])
     : defaultLocale;
 
   try {
     const messages = (await import(`./messages/${currentLocaleToLoad}.json`)).default;
-    console.warn(`[next-intl] Loaded messages for locale: ${currentLocaleToLoad}`);
     return {
       messages,
       locale: currentLocaleToLoad
     };
   } catch (error) {
-    console.error(
-      `[next-intl] Failed to load messages for "${currentLocaleToLoad}". Falling back to default locale "${defaultLocale}".`,
-      error
-    );
-
     const fallbackMessages = (await import(`./messages/${defaultLocale}.json`)).default;
     return {
       messages: fallbackMessages,

@@ -16,6 +16,13 @@ type WeightMetric = {
   recorded_at: string;
 };
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
+
 export default function ProgressOverviewChart() {
   const t = useTranslations('ProgressOverviewChart');
 
@@ -30,12 +37,11 @@ export default function ProgressOverviewChart() {
   } satisfies ChartConfig;
 
   useEffect(() => {
-    const API_BASE_URL = 'https://vibrafit.onrender.com';
-
+    
     async function fetchWeightData() {
       try {
         const token = localStorage.getItem('accessToken');
-        const res = await fetch(`${API_BASE_URL}/api/metrics/?type=weight`, {
+        const res = await fetch(apiUrl('/metrics/?type=weight'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

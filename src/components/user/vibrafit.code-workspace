@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../vibrafit"
+		},
+		{
+			"name": "vibrafit_frontend",
+			"path": "../../.."
+		}
+	],
+	"settings": {}
+}

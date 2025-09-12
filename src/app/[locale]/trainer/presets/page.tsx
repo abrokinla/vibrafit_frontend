@@ -40,7 +40,7 @@ export default function TrainerPresetsPage() {
   const [presetName, setPresetName] = useState('');
   const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced' | undefined>(undefined);
   const [exercises, setExercises] = useState<PresetExercise[]>([
-    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '', order: 0 },
+    { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '', order: 0 },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +68,7 @@ export default function TrainerPresetsPage() {
   const handleAddExercise = () => {
     setExercises([
       ...exercises,
-      { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '', order: exercises.length }
+      { id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '', order: exercises.length }
     ]);
   };
 
@@ -88,7 +88,7 @@ export default function TrainerPresetsPage() {
       try {
         const result = await uploadTimelineMedia(file);
         if (result.success && result.url) {
-            handleExerciseChange(exerciseId, 'videoUrl', result.url);
+            handleExerciseChange(exerciseId, 'video_url', result.url);
             toast({ title: "Video Uploaded", description: `Video for exercise has been linked.`});
         } else {
             throw new Error(result.error || "Upload failed");
@@ -124,7 +124,7 @@ export default function TrainerPresetsPage() {
     setEditingPresetId(null);
     setPresetName('');
     setLevel(undefined);
-    setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', videoUrl: '', order: 0 }]);
+    setExercises([{ id: Date.now().toString(), name: '', sets: '', reps: '', unit: 'reps', notes: '', video_url: '', order: 0 }]);
   };
 
   const validateForm = (): boolean => {
@@ -167,7 +167,20 @@ export default function TrainerPresetsPage() {
 
     setIsSaving(true);
     
-    const routineData = { name: presetName, level: level!, exercises };
+    const routineData = {
+      name: presetName,
+      level: level!,
+      exercises: exercises.map(({ id, video_url, name, sets, reps, unit, notes, order }) => ({
+        id,
+        name,
+        sets,
+        reps,
+        unit,
+        notes,
+        video_url: video_url || "",
+        order
+      }))
+    };
 
     try {
       if (editingPresetId) {
@@ -370,7 +383,7 @@ export default function TrainerPresetsPage() {
                 <div className="mt-3 space-y-1">
                   <Label htmlFor={`ex-video-${index}`}>{t('videoUrlLabel')}</Label>
                   <div className="flex gap-2 items-center">
-                    <Input id={`ex-video-url-${index}`} placeholder={t('videoUrlPlaceholder')} value={exercise.videoUrl || ''} onChange={(e) => handleExerciseChange(exercise.id, 'videoUrl', e.target.value)} disabled={isSaving}/>
+                    <Input id={`ex-video-url-${index}`} placeholder={t('videoUrlPlaceholder')} value={exercise.video_url || ''} onChange={(e) => handleExerciseChange(exercise.id, 'video_url', e.target.value)} disabled={isSaving}/>
                     <Button variant="outline" size="icon" onClick={() => videoFileRefs.current[exercise.id]?.click()} disabled={isSaving} aria-label="Upload video">
                         <UploadCloud className="h-4 w-4" />
                     </Button>

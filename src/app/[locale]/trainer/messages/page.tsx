@@ -36,7 +36,16 @@ export default function MessagesPage() {
     
     setIsLoadingConversations(true);
     fetchConversations()
-      .then(data => setConversations(data))
+      .then(data => {
+        // Deduplicate by user id
+        const uniqueConvos = Object.values(
+          data.reduce((acc: Record<number, Conversation>, convo: Conversation) => {
+            acc[convo.user.id] = convo;
+            return acc;
+          }, {})
+        );
+        setConversations(uniqueConvos);
+      })
       .catch(() => toast({ title: t('toastErrorLoadConversations'), variant: 'destructive' }))
       .finally(() => setIsLoadingConversations(false));
   }, [toast, t]);

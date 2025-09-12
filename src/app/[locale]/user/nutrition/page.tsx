@@ -1,3 +1,4 @@
+
 // src/app/[locale]/user/nutrition/page.tsx
 'use client';
 export const runtime = 'edge';
@@ -25,10 +26,14 @@ import {
         } from '@/lib/api';
 import { uploadProgressPhoto } from '@/lib/utils';
 
-const BASE_URL = "https://vibrafit.onrender.com/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 
 export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
-  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+  const res = await fetch(apiUrl('/logged-meals/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -56,7 +61,7 @@ export async function addMealToApi(
     time,
   };
 
-  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+  const res = await fetch(apiUrl('/logged-meals/'), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -76,7 +81,7 @@ export async function addMealToApi(
 
 
 export async function deleteMealFromApi(token: string, id: number): Promise<{ success: boolean }> {
-  const res = await fetch(`${BASE_URL}/logged-meals/${id}/`, {
+  const res = await fetch(apiUrl(`/logged-meals/${id}/`), {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -107,6 +112,7 @@ export default function NutritionPage() {
 
   const [user, setUser] = useState<UserData | null>(null);
   const [trainerMeals, setTrainerMeals] = useState<TrainerMeal[]>([]);
+  const [trainerMealsMessage, setTrainerMealsMessage] = useState<string | null>(null);
   const [goal, setGoal] = useState('');
   const [targetValue, setTargetValue] = useState('');
   const [targetDate, setTargetDate] = useState('');
@@ -156,8 +162,23 @@ export default function NutritionPage() {
       });
 
     fetchTodaysTrainerMeals(token)
-      .then((meals) => {
-        setTrainerMeals(meals);
+      .then((result) => {
+        // result can be an array or an object with meals/message
+        if (Array.isArray(result)) {
+          setTrainerMeals(result);
+          setTrainerMealsMessage(null);
+        } else if (
+          result &&
+          typeof result === 'object' &&
+          result !== null &&
+          Array.isArray((result as { meals?: TrainerMeal[] }).meals)
+        ) {
+          setTrainerMeals((result as { meals: TrainerMeal[] }).meals || []);
+          setTrainerMealsMessage((result as { message?: string }).message || null);
+        } else {
+          setTrainerMeals([]);
+          setTrainerMealsMessage(null);
+        }
       })
       .catch((err) => {
         console.error("Error fetching trainer meals:", err);
@@ -176,7 +197,7 @@ export default function NutritionPage() {
       if (!token) return;
 
       try {
-        const res = await fetch("https://vibrafit.onrender.com/api/goals/", {
+        const res = await fetch(apiUrl('/goals/'), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -279,13 +300,12 @@ export default function NutritionPage() {
       description: goal,
       target_value: targetValue,
       target_date: targetDate,
-      status: "pending",
     };
 
     try {
       const url = goalId
-        ? `https://vibrafit.onrender.com/api/goals/${goalId}/`
-        : "https://vibrafit.onrender.com/api/goals/";
+        ? apiUrl(`/goals/${goalId}/`)
+        : apiUrl(`/goals/`);
 
       const method = goalId ? "PATCH" : "POST";
 
@@ -480,7 +500,9 @@ export default function NutritionPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {trainerMeals.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">{t('noTrainerMealsToday')}</p>
+            <p className="text-sm text-muted-foreground italic">
+              {trainerMealsMessage ? trainerMealsMessage : t('noTrainerMealsToday')}
+            </p>
           ) : (
             trainerMeals.map((meal, index) => (
               <div key={index} className="border p-3 rounded-md">
@@ -528,18 +550,6 @@ export default function NutritionPage() {
             onChange={(e) => setNewMealDescription(e.target.value)}
             disabled={isSavingMeal}
           />
-
-          <div className="space-y-1">
-            <Label htmlFor="meal-calories">{t('caloriesOptionalLabel')}</Label>
-            <Input 
-              id="meal-calories"
-              type="number"
-              placeholder={t('caloriesPlaceholder')}
-              value={newMealCalories}
-              onChange={(e) => setNewMealCalories(e.target.value)}
-              disabled={isSavingMeal}
-            />
-          </div>
 
           <div className="space-y-1">
             <Label htmlFor="meal-calories">{t('caloriesOptionalLabel')}</Label>

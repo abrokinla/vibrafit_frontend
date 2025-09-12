@@ -296,7 +296,10 @@
     "toastErrorLoadTitle": "Error Loading Data",
     "toastErrorLoadDesc": "Could not load metrics. Please try again.",
     "toastErrorTitle": "Error",
-    "toastErrorDesc": "An unexpected error occurred."
+    "toastErrorDesc": "An unexpected error occurred.",
+    "bmiPlaceholder": "e.g. 22.5",
+    "muscle_massPlaceholder": "e.g. 30.0",
+    "waist_circumferencePlaceholder": "e.g. 85.0"
   },
   "NutritionPage": {
     "title": "Nutrition & Goals",

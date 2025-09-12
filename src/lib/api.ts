@@ -1,12 +1,22 @@
 import { parseISO, differenceInDays, addDays } from 'date-fns';
-const API_BASE_URL = 'https://vibrafit.onrender.com';
+import axios from "axios";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+
+export function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 
 export interface GoalPayload {
   user: number;
-  description: string;
-  target_value: string;
-  target_date: string;
-  status: 'pending' | 'active' | 'completed';
+  description?: string;
+  target_value?: string;
+  target_date?: string;
+}
+
+export interface Interest {
+  id: number;
+  name: string;
 }
 
 export interface UserData {
@@ -25,10 +35,10 @@ export interface UserData {
   beforePhotoUrl: string | null;
   currentPhotoUrl: string | null;
   trainerId: number | null;
-  trainingLevel: string | null;
+  training_level: string | null;
   date_of_birth: string | null;
   goal: GoalPayload | null;
-  interests?: string[];
+  interests?: number[];
   gym_name?: string;
 
   metrics: {
@@ -38,7 +48,7 @@ export interface UserData {
     bmi?: number | null;
     muscle_mass?: number | null;
     waist_circumference?: number | null;
-    [key: string]: number | null | undefined; // future-proof
+    [key: string]: number | null | undefined;
   };
 
   current_subscription?: {
@@ -90,7 +100,7 @@ export interface PresetExercise {
     reps: string;
     unit: 'reps' | 'seconds' | 'minutes';
     notes?: string;
-    videoUrl?: string;
+    video_url?: string;
     order: number;
 }
 
@@ -109,7 +119,7 @@ export interface ExerciseInput {
   reps: string;
   unit: 'reps' | 'seconds' | 'minutes';
   notes?: string;
-  videoUrl?: string; 
+  video_url?: string; 
 }
 
 export interface RoutineAssignment {
@@ -221,7 +231,7 @@ export interface ClientDetailsForTrainer extends PublicProfileData {
 }
 
 export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
-  const res = await fetch(`https://vibrafit.onrender.com/api/nutrition-plan/today/`, {
+  const res = await fetch(apiUrl('/nutrition-plan/today/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -260,7 +270,7 @@ export interface AdHocWorkout {
 }
 
 export interface Exercise {
-  id: string;
+  id: number;
   exercise_id?: number;
   name: string;
   sets: number;
@@ -343,7 +353,7 @@ export async function getUserData(): Promise<UserData> {
   const headers = await getAuthHeaders();
 
   const res = await fetch(
-    `${API_BASE_URL}/api/users/${userId}/`,
+  apiUrl(`/users/${userId}/`),
     {
       method: 'GET',
       headers,
@@ -374,7 +384,7 @@ export async function getUserData(): Promise<UserData> {
 
 export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
   const headers = await getAuthHeaders();
-  const userRes = await fetch(`${API_BASE_URL}/api/users/profile/`, { headers });
+  const userRes = await fetch(apiUrl('/users/profile/'), { headers });
 
   if (!userRes.ok) {
     if (userRes.status === 401) throw new Error('UNAUTHORIZED');
@@ -392,7 +402,7 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
   // Only fetch trainer data if role is 'trainer'
   let trainerData = {};
   if (userData.role === 'trainer') {
-    const trainerRes = await fetch(`${API_BASE_URL}/api/trainers/profile/`, { headers });
+  const trainerRes = await fetch(apiUrl('/trainers/profile/'), { headers });
     if (trainerRes.ok) {
       trainerData = await trainerRes.json();
     } else {
@@ -411,7 +421,7 @@ export async function saveTrainerProfile(
 ): Promise<{ success: boolean }> {
   const headers = await getAuthHeaders();
   const res = await fetch(
-    `${API_BASE_URL}/api/trainer-profile/profile/`,
+  apiUrl('/trainer-profile/profile/'),
     {
       method: 'PATCH',
       headers,
@@ -433,7 +443,7 @@ export async function saveUserProfile(
 ): Promise<{ success: boolean }> {;
   const headers = await getAuthHeaders();
   const res = await fetch(
-    `${API_BASE_URL}/api/users/profile/`,
+  apiUrl('/users/profile/'),
     {
       method: 'PATCH',
       headers,
@@ -451,17 +461,16 @@ export async function saveUserProfile(
 
 export async function completeUserOnboarding(
   userId: string,
-  data: Partial<UserData> & { interests: string[], goal?: Partial<GoalPayload> }
+  data: Partial<UserData> & { interests: number[]; goal?: Partial<GoalPayload> }
 ): Promise<{ success: boolean; message?: string }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/users/${userId}/onboard/`, {
+  const res = await fetch(apiUrl(`/users/${userId}/onboard/`), {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
   });
-
   if (!res.ok) {
-    const errorData = await res.json();
+    const errorData = await res.json().catch(() => ({}));
     return { success: false, message: errorData.detail || 'Onboarding failed' };
   }
   return { success: true };
@@ -478,7 +487,7 @@ export async function completeTrainerOnboarding(
   }
 ): Promise<{ success: boolean; message?: string }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/users/${userId}/onboard/`, {
+  const res = await fetch(apiUrl(`/users/${userId}/onboard/`), {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
@@ -502,7 +511,7 @@ export const saveMetrics = async (
   const headers = await getAuthHeaders();
   try {
     for (const { type, value } of metrics) {
-      await fetch(`${API_BASE_URL}/api/metrics/`, {
+  await fetch(apiUrl('/metrics/'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ type, value }),
@@ -518,7 +527,7 @@ export const saveMetrics = async (
 };
 
 export async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
-  const res = await fetch(`${API_BASE_URL}/api/daily-logs/`, {
+  const res = await fetch(apiUrl('/daily-logs/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -576,21 +585,21 @@ export async function calculateLongestStreak(token: string): Promise<number> {
 
 export async function fetchConversations(): Promise<Conversation[]> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/messages/conversations/`, { headers });
+  const res = await fetch(apiUrl('/messages/conversations/'), { headers });
   if (!res.ok) throw new Error('Failed to fetch conversations');
   return res.json();
 }
 
 export async function fetchMessages(otherUserId: number): Promise<Message[]> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/messages/?with_user=${otherUserId}`, { headers });
+  const res = await fetch(apiUrl(`/messages/?with_user=${otherUserId}`), { headers });
   if (!res.ok) throw new Error('Failed to fetch messages');
   return res.json();
 }
 
 export async function sendMessage(recipientId: number, content: string): Promise<Message> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/messages/`, {
+  const res = await fetch(apiUrl('/messages/'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ recipient: recipientId, content }),
@@ -604,7 +613,7 @@ export async function sendMessage(recipientId: number, content: string): Promise
 
 export async function markConversationAsRead(otherUserId: number): Promise<void> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/messages/mark_conversation_read/`, {
+  const res = await fetch(apiUrl('/messages/mark_conversation_read/'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ other_user_id: otherUserId }),
@@ -614,7 +623,7 @@ export async function markConversationAsRead(otherUserId: number): Promise<void>
 
 export async function getUnreadMessageCount(): Promise<number> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}/api/messages/unread_count/`, { headers });
+  const res = await fetch(apiUrl('/messages/unread_count/'), { headers });
   if (!res.ok) throw new Error('Failed to fetch unread count');
   const data = await res.json();
   return data.count;
@@ -622,7 +631,7 @@ export async function getUnreadMessageCount(): Promise<number> {
 
 export async function fetchActiveClientCount(): Promise<number> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/trainer-profile/clients/`, {
+  const response = await fetch(apiUrl('/trainer-profile/clients/'), {
     method: 'GET',
     headers,
   });
@@ -638,7 +647,7 @@ export async function fetchActiveClientCount(): Promise<number> {
 
 export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<DailyLog[]> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/daily-logs/trainer-clients/?limit=${limit}`, {
+  const response = await fetch(apiUrl(`/daily-logs/trainer-clients/?limit=${limit}`), {
     headers,
   });
 
@@ -743,7 +752,7 @@ export async function fetchPublicUserProfile(userId: string): Promise<PublicProf
 
   try {
     const headers = await getAuthHeaders();
-    const userRes = await fetch(`${API_BASE_URL}/api/users/${userId}/`, { headers });
+  const userRes = await fetch(apiUrl(`/users/${userId}/`), { headers });
     if (!userRes.ok) {
       if (userRes.status === 404) return null;
       throw new Error('Failed to fetch user data');
@@ -751,7 +760,7 @@ export async function fetchPublicUserProfile(userId: string): Promise<PublicProf
     const userData: PublicProfileData = await userRes.json();
 
     if (userData.role === 'trainer') {
-      const profileRes = await fetch(`${API_BASE_URL}/api/trainer-profile/by-user/${userId}/`, { headers });
+  const profileRes = await fetch(apiUrl(`/trainer-profile/by-user/${userId}/`), { headers });
       if (profileRes.ok) {
         const trainerProfileData = await profileRes.json();
         return { ...userData, ...trainerProfileData };
@@ -767,7 +776,7 @@ export async function fetchPublicUserProfile(userId: string): Promise<PublicProf
 
 export async function fetchPendingSubscriptions(): Promise<SubscriptionRequest[]> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/subscriptions/pending-requests/`, {
+  const response = await fetch(apiUrl('/subscriptions/pending-requests/'), {
     method: 'GET',
     headers,
   });
@@ -783,7 +792,7 @@ export async function fetchPendingSubscriptions(): Promise<SubscriptionRequest[]
 export async function fetchClientDetailsForTrainer(clientId: number): Promise<ClientDetailsForTrainer | null> {
   try {
     const headers = await getAuthHeaders();
-    const userRes = await fetch(`${API_BASE_URL}/api/users/${clientId}/`, { headers });
+  const userRes = await fetch(apiUrl(`/users/${clientId}/`), { headers });
     if (!userRes.ok) {
       if (userRes.status === 404) return null;
       throw new Error('Failed to fetch client data');
@@ -791,7 +800,7 @@ export async function fetchClientDetailsForTrainer(clientId: number): Promise<Cl
     const userData: ClientDetailsForTrainer = await userRes.json();
 
     // Fetch client goals
-    const goalsRes = await fetch(`${API_BASE_URL}/api/goals/?user=${clientId}`, { headers });
+  const goalsRes = await fetch(apiUrl(`/goals/?user=${clientId}`), { headers });
     let goal = null;
     if (goalsRes.ok) {
       const goalsData = await goalsRes.json();
@@ -800,7 +809,7 @@ export async function fetchClientDetailsForTrainer(clientId: number): Promise<Cl
     }
 
     // Fetch client metrics
-    const metricsRes = await fetch(`${API_BASE_URL}/api/metrics/?user=${clientId}`, { headers });
+  const metricsRes = await fetch(apiUrl(`/metrics/?user=${clientId}`), { headers });
     let metrics = {};
     if (metricsRes.ok) {
       const metricsData = await metricsRes.json();
@@ -828,7 +837,7 @@ export async function respondToSubscriptionRequest(
   status: 'active' | 'declined'
 ) {
   const endpoint = status === 'active' ? 'accept' : 'decline';
-  const url = `${API_BASE_URL}/api/subscriptions/${id}/${endpoint}/`;
+  const url = apiUrl(`/subscriptions/${id}/${endpoint}/`);
   const headers = await getAuthHeaders();
   
   
@@ -887,7 +896,7 @@ export async function createPresetRoutine(
 ): Promise<{ success: true; newPreset: PresetRoutine } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/`, {
+  const response = await fetch(apiUrl('/preset-routines/'), {
       method: 'POST',
       headers,
       body: JSON.stringify(routineData),
@@ -910,7 +919,7 @@ export async function createPresetRoutine(
 export async function fetchPresetRoutines(): Promise<PresetRoutine[]> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/`, {
+  const response = await fetch(apiUrl('/preset-routines/'), {
       method: 'GET',
       headers,
     });
@@ -931,7 +940,7 @@ export async function fetchPresetRoutinesByLevel(
 ): Promise<PresetRoutine[]> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/level/${level}/`, {
+  const response = await fetch(apiUrl(`/preset-routines/level/${level}/`), {
       method: 'GET',
       headers,
     });
@@ -950,7 +959,7 @@ export async function fetchPresetRoutinesByLevel(
 export async function getPresetRoutine(id: number): Promise<PresetRoutine> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+  const response = await fetch(apiUrl(`/preset-routines/${id}/`), {
       method: 'GET',
       headers,
     });
@@ -971,7 +980,7 @@ export async function updatePresetRoutine(
 ): Promise<{ success: true; preset: PresetRoutine } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+  const response = await fetch(apiUrl(`/preset-routines/${id}/`), {
       method: 'PUT',
       headers,
       body: JSON.stringify(routineData),
@@ -996,7 +1005,7 @@ export async function deletePresetRoutine(
 ): Promise<{ success: true; message?: string } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/`, {
+  const response = await fetch(apiUrl(`/preset-routines/${id}/`), {
       method: 'DELETE',
       headers,
     });
@@ -1020,7 +1029,7 @@ export async function duplicatePresetRoutine(
 ): Promise<{ success: true; newPreset: PresetRoutine } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/${id}/duplicate/`, {
+  const response = await fetch(apiUrl(`/preset-routines/${id}/duplicate/`), {
       method: 'POST',
       headers,
     });
@@ -1053,7 +1062,7 @@ export async function getPresetRoutineStats(): Promise<{
 } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/stats/`, {
+  const response = await fetch(apiUrl('/preset-routines/stats/'), {
       method: 'GET',
       headers,
     });
@@ -1077,7 +1086,7 @@ export async function bulkDeletePresetRoutines(
 ): Promise<{ success: true; message: string } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}/api/preset-routines/bulk-delete/`, {
+  const response = await fetch(apiUrl('/preset-routines/bulk-delete/'), {
       method: 'POST',
       headers,
       body: JSON.stringify({ ids }),
@@ -1092,6 +1101,32 @@ export async function bulkDeletePresetRoutines(
       error: error instanceof Error ? error.message : 'Failed to delete presets'
     };
   }
+}
+
+type ApiSuccess<T> = { success: true; data: T };
+type ApiFailure    = { success: false; message?: string };
+
+export async function getInterests(): Promise<ApiSuccess<Interest[]> | ApiFailure> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(apiUrl('/interests/'), { headers });
+  if (!res.ok) return { success: false, message: 'Failed to fetch interests' };
+  const data: Interest[] = await res.json();
+  return { success: true, data };
+}
+
+export async function createInterest(payload: { name: string }): Promise<ApiSuccess<Interest> | ApiFailure> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(apiUrl('/interests/'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return { success: false, message: err.detail || 'Failed to create interest' };
+  }
+  const data: Interest = await res.json();
+  return { success: true, data };
 }
 
 // --- Forgot Password ---

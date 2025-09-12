@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
 // Add these API functions
-const API_BASE_URL = "https://vibrafit.onrender.com";
+import { apiUrl } from '@/lib/api';
 
 async function getAuthHeaders() {
   const token = localStorage.getItem('accessToken');
@@ -23,7 +23,7 @@ async function getAuthHeaders() {
 async function getUnreadMessageCount(): Promise<number> {
   try {
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}/api/messages/unread-count/`, { headers });
+    const res = await fetch(apiUrl('/messages/unread-count/'), { headers });
     if (!res.ok) return 0;
     const data = await res.json();
     return data.count || 0;

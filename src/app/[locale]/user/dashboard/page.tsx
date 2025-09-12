@@ -20,10 +20,14 @@ import { uploadProgressPhoto } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
-const BASE_URL = "https://vibrafit.onrender.com/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
+}
 
 export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
-  const res = await fetch(`${BASE_URL}/logged-meals/`, {
+  const res = await fetch(apiUrl('/logged-meals/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -38,7 +42,7 @@ export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
 }
 
 export async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
-  const res = await fetch(`${BASE_URL}/daily-logs/`, {
+  const res = await fetch(apiUrl('/daily-logs/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -243,7 +247,7 @@ export default function UserDashboardPage() {
     if (!token) return;
     
     try {
-      const response = await fetch(`https://vibrafit.onrender.com/api/subscriptions/${subscriptionId}/`, {
+  const response = await fetch(apiUrl(`/subscriptions/${subscriptionId}/`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
