@@ -10,9 +10,10 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Post, likePost } from '@/lib/api';
-import { Heart, MessageCircle, Repeat, User } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, User, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link } from '@/navigation';
+import { Badge } from '@/components/ui/badge';
 
 interface PostCardProps {
   post: Post;
@@ -39,17 +40,12 @@ export default function PostCard({ post }: PostCardProps) {
     setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
 
     try {
-      const result = await likePost(post.id, !isLiked);
-      if (!result.success) {
-        // Revert on failure
-        setIsLiked(originalLiked);
-        setLikeCount(originalLikeCount);
-      } else {
-        // Optionally update with the real count from server
-        setLikeCount(result.newLikeCount);
-      }
+      const result = await likePost(post.id);
+      setIsLiked(result.liked);
+      setLikeCount(result.likes_count);
     } catch (error) {
       console.error("Failed to like post:", error);
+      // Revert on failure
       setIsLiked(originalLiked);
       setLikeCount(originalLikeCount);
     }
@@ -70,7 +66,15 @@ export default function PostCard({ post }: PostCardProps) {
             </Avatar>
           </Link>
           <div>
-            <Link href={userProfileLink as any} className="font-semibold hover:underline">{post.author.name}</Link>
+            <div className="flex items-center gap-2">
+              <Link href={userProfileLink as any} className="font-semibold hover:underline">{post.author.name}</Link>
+              {(post.author.role === 'trainer' || post.author.role === 'gym') && (
+                <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                  <Award className="h-3 w-3 mr-1" />
+                  {post.author.role === 'trainer' ? 'Trainer' : 'Gym Owner'}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: es })}
             </p>

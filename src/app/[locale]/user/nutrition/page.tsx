@@ -26,14 +26,14 @@ import {
         } from '@/lib/api';
 import { uploadProgressPhoto } from '@/lib/utils';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
 
 export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
-  const res = await fetch(apiUrl('/logged-meals/'), {
+  const res = await fetch(apiUrl('/users/logged-meals/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -61,7 +61,7 @@ export async function addMealToApi(
     time,
   };
 
-  const res = await fetch(apiUrl('/logged-meals/'), {
+  const res = await fetch(apiUrl('/users/logged-meals/'), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -81,7 +81,7 @@ export async function addMealToApi(
 
 
 export async function deleteMealFromApi(token: string, id: number): Promise<{ success: boolean }> {
-  const res = await fetch(apiUrl(`/logged-meals/${id}/`), {
+  const res = await fetch(apiUrl(`/users/logged-meals/${id}/`), {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -129,7 +129,6 @@ export default function NutritionPage() {
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      // Handle no token case, e.g., redirect to login
       setIsLoadingMeals(false);
       setIsLoadingProfile(false);
       return;
@@ -163,7 +162,6 @@ export default function NutritionPage() {
 
     fetchTodaysTrainerMeals(token)
       .then((result) => {
-        // result can be an array or an object with meals/message
         if (Array.isArray(result)) {
           setTrainerMeals(result);
           setTrainerMealsMessage(null);
@@ -197,7 +195,7 @@ export default function NutritionPage() {
       if (!token) return;
 
       try {
-        const res = await fetch(apiUrl('/goals/'), {
+        const res = await fetch(apiUrl('/users/goals/'), {
           headers: {
             Authorization: `Bearer ${token}`,
           },

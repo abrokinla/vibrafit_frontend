@@ -7,34 +7,32 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import Link from 'next/link';
-import { Briefcase, Zap, UserCircle, Star } from "lucide-react"; 
+import { useRouter } from '@/navigation';
+import { Briefcase, Zap, UserCircle, Star } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
 interface TrainerSummary {
-  id: string; // User ID of the trainer
+  id: string;
   name: string;
   profilePictureUrl: string | null;
-  specializations?: string[]; // Assuming from TrainerProfileData
-  bio?: string; // Assuming from TrainerProfileData
-  experienceYears?: number; // Assuming from TrainerProfileData
-  rating?: number; // Assuming from TrainerProfileData
+  specializations?: string[];
+  bio?: string;
+  experienceYears?: number;
+  rating?: number;
 }
 
 async function fetchAvailableTrainers(): Promise<TrainerSummary[]> {
   const token = localStorage.getItem('accessToken');
   if (!token) {
-    // Handle not authenticated error, maybe redirect to login
-    console.error("User not authenticated");
     return [];
   }
-  const res = await fetch('https://vibrafit.onrender.com/api/users/trainers/', {
+  const res = await fetch(apiUrl('/users/trainers/'), {
     headers: {
       'Authorization': `Bearer ${token}`,
     },
@@ -43,34 +41,37 @@ async function fetchAvailableTrainers(): Promise<TrainerSummary[]> {
   if (!res.ok) throw new Error('Failed to fetch trainers');
   const trainersData = await res.json();
   
-  // Map to TrainerSummary, assuming the API returns user data including some profile info
-  // or that we need to make further calls if profile info is separate
   return trainersData.map((trainer: any) => ({
     id: trainer.id,
     name: trainer.name || 'Trainer Name Missing',
     profilePictureUrl: trainer.profilePictureUrl || null,
-    // These fields might come from a nested profile object or need another fetch
-    specializations: trainer.trainer_profile?.specializations || [], 
-    bio: trainer.trainer_profile?.bio || 'No bio available.',
-    experienceYears: trainer.trainer_profile?.experience_years,
-    rating: trainer.trainer_profile?.rating, // Assuming rating is available
+    specializations: trainer.specializations || [],
+    bio: trainer.bio || 'No bio available.',
+    experienceYears: trainer.experienceYears,
+    rating: trainer.trainer_profile?.rating,
   }));
 }
 
 export default function FindTrainerPage() {
   const t = useTranslations('FindTrainerPage');
+  const router = useRouter();
   const [trainers, setTrainers] = useState<TrainerSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleViewProfile = (trainerId: string) => {
+    router.push({
+      pathname: '/user/find-trainer/[trainerId]',
+      params: { trainerId }
+    });
+  };
 
   useEffect(() => {
     setIsLoading(true);
     fetchAvailableTrainers().then(data => {
       setTrainers(data);
       setIsLoading(false);
-    }).catch(err => {
-      console.error("Error fetching trainers:", err);
+    }).catch(() => {
       setIsLoading(false);
-      // Optionally, show a toast notification for the error
     });
   }, []);
 
@@ -140,11 +141,12 @@ export default function FindTrainerPage() {
                 )}
               </CardContent>
               <CardFooter>
-                <Link href={`/user/find-trainer/${trainer.id}`} passHref className="w-full">
-                  <Button className="w-full">
-                    <UserCircle className="mr-2 h-4 w-4" /> {t('viewProfileButton')}
-                  </Button>
-                </Link>
+                <Button
+                  className="w-full"
+                  onClick={() => handleViewProfile(trainer.id)}
+                >
+                  <UserCircle className="mr-2 h-4 w-4" /> {t('viewProfileButton')}
+                </Button>
               </CardFooter>
             </Card>
           ))}

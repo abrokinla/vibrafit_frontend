@@ -16,8 +16,8 @@ import { es } from 'date-fns/locale';
 import WorkoutSessionModal from '@/components/user/workout-session-modal';
 import { cn } from '@/lib/utils';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -37,11 +37,11 @@ export async function fetchTodayAssignedRoutines(token: string): Promise<DailyUs
   const today = new Date();
   const todayStr = formatDate(today, 'yyyy-MM-dd')
 
-  const logsRes = await fetch(apiUrl(`/daily-logs/?date=${todayStr}`), {
+  const logsRes = await fetch(apiUrl(`/users/daily-logs/?date=${todayStr}`), {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  const plansRes = await fetch(apiUrl('/plans/'), {
+  const plansRes = await fetch(apiUrl('/users/plans/'), {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -90,7 +90,7 @@ export async function fetchTodayWorkoutLog(token: string, planId: number | undef
   if (!planId) return new Set();
   const todayStr = formatDate(new Date(), 'yyyy-MM-dd');
   try {
-    const logsRes = await fetch(apiUrl(`/daily-logs/?date=${todayStr}&plan_id=${planId}`), {
+    const logsRes = await fetch(apiUrl(`/users/daily-logs/?date=${todayStr}&plan_id=${planId}`), {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!logsRes.ok) {
@@ -121,7 +121,7 @@ export async function fetchTodayWorkoutLog(token: string, planId: number | undef
 }
 
 export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
-  const res = await fetch(apiUrl('/logged-meals/'), {
+  const res = await fetch(apiUrl('/users/logged-meals/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -146,7 +146,7 @@ export async function saveWorkoutProgress(
 
     let existingLogId: number | null = null;
     try {
-      const logsRes = await fetch(apiUrl(`/daily-logs/?date=${todayStr}&plan_id=${planId}`), {
+      const logsRes = await fetch(apiUrl(`/users/daily-logs/?date=${todayStr}&plan_id=${planId}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (logsRes.ok) {
@@ -200,7 +200,7 @@ export async function saveWorkoutProgress(
   }
 
 export async function addAdHocWorkout(token: string, description: string, date: string) {
-  const response = await fetch(apiUrl('/ad-hoc-workouts/'), {
+  const response = await fetch(apiUrl('/users/ad-hoc-workouts/'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -219,7 +219,7 @@ export async function addAdHocWorkout(token: string, description: string, date: 
 }
 
 export async function fetchAdHocWorkouts(token: string): Promise<AdHocWorkout[]> {
-  const res = await fetch(apiUrl(`/ad-hoc-workouts/`), {
+  const res = await fetch(apiUrl(`/users/ad-hoc-workouts/`), {
     headers: { Authorization: `Bearer ${token}` },
   });
 

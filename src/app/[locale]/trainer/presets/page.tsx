@@ -44,6 +44,7 @@ export default function TrainerPresetsPage() {
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   // Library and editing state
   const [presetLibrary, setPresetLibrary] = useState<PresetRoutine[]>([]);
@@ -85,6 +86,10 @@ export default function TrainerPresetsPage() {
         toast({ title: "File too large", description: "Video files should be less than 10MB.", variant: "destructive" });
         return;
       }
+
+      setIsUploadingVideo(true);
+      toast({ title: "Uploading Video", description: "Please wait while your video is being uploaded..." });
+
       try {
         const result = await uploadTimelineMedia(file);
         if (result.success && result.url) {
@@ -95,6 +100,8 @@ export default function TrainerPresetsPage() {
         }
       } catch (error: any) {
         toast({ title: "Upload Error", description: error.message, variant: "destructive" });
+      } finally {
+        setIsUploadingVideo(false);
       }
   }
 
@@ -233,6 +240,8 @@ export default function TrainerPresetsPage() {
       preset.exercises?.map((ex, idx) => ({
         ...ex,
         id: Date.now().toString() + Math.random(),
+        sets: String(ex.sets || ''), // Convert to string for form inputs
+        reps: String(ex.reps || ''), // Convert to string for form inputs
         order: typeof ex.order === 'number' ? ex.order : idx
       }))
     ); // create new client-side IDs and ensure order
@@ -383,7 +392,7 @@ export default function TrainerPresetsPage() {
                 <div className="mt-3 space-y-1">
                   <Label htmlFor={`ex-video-${index}`}>{t('videoUrlLabel')}</Label>
                   <div className="flex gap-2 items-center">
-                    <Input id={`ex-video-url-${index}`} placeholder={t('videoUrlPlaceholder')} value={exercise.video_url || ''} onChange={(e) => handleExerciseChange(exercise.id, 'video_url', e.target.value)} disabled={isSaving}/>
+                    <Input id={`ex-video-url-${index}`} placeholder={t('videoUrlPlaceholder')} value={exercise.video_url || ''} onChange={(e) => handleExerciseChange(exercise.id, 'video_url', e.target.value)} disabled={true}/>
                     <Button variant="outline" size="icon" onClick={() => videoFileRefs.current[exercise.id]?.click()} disabled={isSaving} aria-label="Upload video">
                         <UploadCloud className="h-4 w-4" />
                     </Button>
@@ -407,7 +416,7 @@ export default function TrainerPresetsPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button onClick={handleSavePreset} disabled={isSaving} className="w-full md:w-auto">
+          <Button onClick={handleSavePreset} disabled={isSaving || isUploadingVideo} className="w-full md:w-auto">
             <Save className="mr-2 h-4 w-4" />{isSaving ? t('savingPresetButton') : (editingPresetId ? t('updatePresetButton') : t('savePresetButton'))}
           </Button>
            {editingPresetId && (

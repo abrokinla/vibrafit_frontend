@@ -8,9 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Image as ImageIcon, Loader2, User, X, Video } from 'lucide-react';
-import { createPost, getUserData, UserData, Post } from '@/lib/api';
+import { createPost, getUserData, UserData, Post, uploadPostMedia } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { uploadTimelineMedia } from '@/lib/utils';
 import Image from 'next/image';
 
 interface CreatePostFormProps {
@@ -70,13 +69,9 @@ export default function CreatePostForm({ onPostCreated }: CreatePostFormProps) {
 
     try {
       if (mediaFile) {
-        const uploadResult = await uploadTimelineMedia(mediaFile);
-        if (uploadResult.success && uploadResult.url && uploadResult.resource_type) {
-          mediaUrl = uploadResult.url;
-          mediaType = uploadResult.resource_type;
-        } else {
-          throw new Error(uploadResult.error || 'Media upload failed.');
-        }
+        mediaType = mediaFile.type.startsWith('image/') ? 'image' : 'video';
+        const uploadResult = await uploadPostMedia(mediaFile, mediaType);
+        mediaUrl = uploadResult.url;
       }
 
       const result = await createPost(content, mediaUrl, mediaType);

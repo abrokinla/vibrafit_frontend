@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Link, useRouter } from '@/navigation'; 
+import { Link, useRouter } from '@/navigation';
 import { useTranslations } from 'next-intl';
 import { Building, User, Dumbbell, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import GymOnboardingModal from '@/components/gym/onboarding-modal';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -26,8 +27,12 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<'client' | 'trainer' | 'gym'>('client');
+  const [name, setName] = useState('');
   const [gymName, setGymName] = useState('');
   const [error, setError] = useState('');
+  const [showGymOnboarding, setShowGymOnboarding] = useState(false);
+  const [userId, setUserId] = useState<string>('');
+  const [createdGymData, setCreatedGymData] = useState<{ id: number; name: string } | null>(null);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +54,22 @@ export default function SignUpPage() {
     }
 
     try {
-      const registrationPayload: any = { email, password, role };
+      const registrationPayload: {
+        email: string;
+        password: string;
+        role: string;
+        name?: string;
+        gymName?: string
+      } = { email, password, role };
+
+      // Include additional fields for gym owners
       if (role === 'gym') {
-        registrationPayload.gym_name = gymName;
+        if (name.trim()) {
+          registrationPayload.name = name.trim();
+        }
+        if (gymName.trim()) {
+          registrationPayload.gymName = gymName.trim();
+        }
       }
 
       const regRes = await fetch(apiUrl('/users/register/'), {
@@ -61,14 +79,15 @@ export default function SignUpPage() {
       });
 
       if (!regRes.ok) {
-        const errorData = await regRes.json();
-        const errorMessage = errorData.email?.[0] || errorData.detail || t('errorRegisterFailed', { details: JSON.stringify(errorData) });
-        throw new Error(errorMessage);
+        const errorData = await regRes.json().catch(() => ({ detail: t('errorRegisterFailed') }));
+        const errorMessage = errorData.email?.[0] || errorData.password?.[0] || errorData.role?.[0] || errorData.detail;
+        throw new Error(errorMessage || t('errorRegisterFailed'));
       }
       const user = await regRes.json();
       localStorage.setItem('userId', user.id);
+      setUserId(user.id);
 
-      const loginRes = await fetch(apiUrl('/auth/login/'), {
+      const loginRes = await fetch(apiUrl('/users/auth/login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -81,11 +100,34 @@ export default function SignUpPage() {
       localStorage.setItem('accessToken', access);
       localStorage.setItem('refreshToken', refresh);
       localStorage.setItem('userRole', role);
-  
+
       if (role === 'trainer') {
         router.push('/trainer/dashboard');
       } else if (role === 'gym') {
-        router.push('/gym/dashboard');
+        // Gym owners are never onboarded immediately after signup - show onboarding modal directly
+        try {
+          const gymsResponse = await fetch(apiUrl('/gyms/'), {
+            headers: { Authorization: `Bearer ${access}` },
+          });
+
+          if (gymsResponse.ok) {
+            const gyms = await gymsResponse.json();
+            if (gyms.length > 0) {
+              // Show onboarding modal for all new gym owners
+              setCreatedGymData({ id: gyms[0].id, name: gyms[0].name });
+              setShowGymOnboarding(true);
+            } else {
+              // No gym found - shouldn't happen, but show error
+              setError('Gym creation error. Please contact support.');
+            }
+          } else {
+            // API error
+            setError('Error loading gym data. Please try refreshing.');
+          }
+        } catch (gymError) {
+          console.error('Error fetching gyms:', gymError);
+          setError('Network error. Please try again.');
+        }
       } else {
         router.push('/user/dashboard');
       }
@@ -130,24 +172,37 @@ export default function SignUpPage() {
                     onValueChange={(value: 'client' | 'trainer' | 'gym') => setRole(value)}
                     className="grid grid-cols-3 gap-4"
                  >
-                   <RoleCard value="client" label={t('roleUser')} icon={<User className="h-8 w-8 text-primary"/>} currentRole={role} />
+                   <RoleCard value="client" label={t('roleMember')} icon={<User className="h-8 w-8 text-primary"/>} currentRole={role} />
                    <RoleCard value="trainer" label={t('roleTrainer')} icon={<Dumbbell className="h-8 w-8 text-primary"/>} currentRole={role} />
                    <RoleCard value="gym" label={t('roleGym')} icon={<Building className="h-8 w-8 text-primary"/>} currentRole={role} />
                 </RadioGroup>
              </div>
             
             {role === 'gym' && (
-              <div className="space-y-2 animate-in fade-in duration-300">
-                <Label htmlFor="gymName">{t('gymNameLabel')}</Label>
-                <Input
-                  id="gymName"
-                  type="text"
-                  placeholder={t('gymNamePlaceholder')}
-                  required
-                  value={gymName}
-                  onChange={(e) => setGymName(e.target.value)}
-                />
-              </div>
+              <>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label htmlFor="name">{t('nameLabel')}</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder={t('namePlaceholder')}
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label htmlFor="gymName">{t('gymNameLabel')}</Label>
+                  <Input
+                    id="gymName"
+                    type="text"
+                    placeholder={t('gymNamePlaceholder')}
+                    required
+                    value={gymName}
+                    onChange={(e) => setGymName(e.target.value)}
+                  />
+                </div>
+              </>
             )}
 
             <div className="space-y-2">
@@ -168,7 +223,7 @@ export default function SignUpPage() {
                 type="password"
                 required
                 placeholder={t('passwordPlaceholder')}
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -197,6 +252,19 @@ export default function SignUpPage() {
           </p>
         </CardFooter>
       </Card>
+
+      {/* Gym Onboarding Modal */}
+      {showGymOnboarding && createdGymData && (
+        <GymOnboardingModal
+          isOpen={showGymOnboarding}
+          onClose={() => {
+            setShowGymOnboarding(false);
+            router.push('/gym/dashboard');
+          }}
+          userId={userId}
+          gymId={createdGymData.id.toString()}
+        />
+      )}
     </div>
   );
 }

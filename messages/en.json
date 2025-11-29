@@ -57,7 +57,7 @@
     "title": "Create Your Vibrafit Account",
     "description": "Join us to start tracking your fitness journey!",
     "roleLabel": "Sign up as a:",
-    "roleUser": "User",
+    "roleMember": "Member",
     "roleTrainer": "Fitness Trainer",
     "emailLabel": "Email",
     "emailPlaceholder": "you@example.com",
@@ -389,9 +389,12 @@
     "noRecentClientActivity": "No recent client activity.",
     "clientManagementTitle": "Client Management",
     "clientManagementDescription": "View and manage your client roster.",
+    "errorLoadStats": "Could not load dashboard statistics.",
+    "errorLoadPendingActions": "Could not load pending actions.",
     "clientManagementPlaceholder": "Client list and management tools will appear here.",
     "loadingUser": "Loading...",
     "errorLoadProfile": "Could not load your profile.",
+    "errorLoadClientCount": "Could not load active client count.",
     "refreshErrorToastTitle": "Refresh Error",
     "refreshErrorToastDescription": "Could not update your dashboard info."
   },
@@ -494,7 +497,43 @@
   },
   "RecentActivityFeed": {
     "noActivity": "No recent activity recorded yet."
+  },
+  "PendingRequestsPage": {
+    "title": "Pending Subscription Requests",
+    "description": "Review and respond to client subscription requests.",
+    "noPendingTitle": "No Pending Requests",
+    "noPendingDescription": "You don't have any pending subscription requests at the moment.",
+    "viewDetailsButton": "View Profile",
+    "rejectButton": "Reject",
+    "approveButton": "Approve",
+    "toastErrorTitle": "Error",
+    "toastErrorFetch": "Failed to load pending requests.",
+    "toastSuccessTitle": "Success",
+    "toastSuccessDescription": "{clientName} subscription {status}.",
+    "toastErrorUpdate": "Failed to update subscription status.",
+    "requestedTime": "Requested {time}"
+  },
+  "ClientDetailsModal": {
+    "title": "Client Details",
+    "description": "Review client information before making a decision.",
+    "errorLoading": "Failed to load client details.",
+    "goalTitle": "Fitness Goal",
+    "noGoalSet": "No fitness goal set.",
+    "targetValueLabel": "Target:",
+    "targetDateLabel": "Deadline:",
+    "metricsTitle": "Body Metrics",
+    "weightLabel": "Weight:",
+    "heightLabel": "Height:",
+    "notAvailable": "Not available",
+    "beforePhotoTitle": "Before Photo",
+    "currentPhotoTitle": "Current Photo",
+    "beforePhotoAlt": "Client before photo",
+    "currentPhotoAlt": "Client current photo"
+  },
+  "GymDashboardPage": {
+    "errorLoadingGyms": "Error Loading Gyms",
+    "errorLoadingGymsDesc": "Could not load your gyms. Please try refreshing the page.",
+    "noGymsTitle": "No Gyms Found",
+    "noGymsDescription": "You haven't created any gyms yet. Get started by creating your first gym."
   }
 }
-
-    

@@ -10,14 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link, useRouter } from '@/navigation'; 
-import { Loader2, Dumbbell } from 'lucide-react'; 
+import { Link, useRouter } from '@/navigation';
+import { Loader2, Dumbbell } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Image from "next/image";
 import { Separator } from '@/components/ui/separator';
+import { tokenManager } from '@/lib/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -48,7 +49,7 @@ export default function SignInPage() {
     setIsSigningIn(true);
 
     try {
-  const response = await fetch(apiUrl('/auth/login/'), {
+  const response = await fetch(apiUrl('/users/auth/login/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -62,25 +63,18 @@ export default function SignInPage() {
       }
   
       const { access, refresh } = await response.json();
-      
-      localStorage.setItem('accessToken', access);
-      localStorage.setItem('refreshToken', refresh);
-  
-  const userProfileRes = await fetch(apiUrl('/users/'), {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${access}`,
-        },
+
+      tokenManager.setTokens(access, refresh);
+
+      const userProfileRes = await fetch(apiUrl('/users/profile/'), {
+        headers: { Authorization: `Bearer ${access}` },
       });
-  
+
       if (!userProfileRes.ok) {
-        const errorText = await userProfileRes.text();
-        throw new Error(`Failed to fetch user profile: ${errorText}`);
+        throw new Error('Failed to fetch user profile');
       }
-  
-      const allUsers = await userProfileRes.json();
-      const loggedInUser = allUsers.find((u: any) => u.email === email);
-      if (!loggedInUser) throw new Error('User not found after login.');
+
+      const loggedInUser = await userProfileRes.json();
   
       const { id, role, is_onboarded } = loggedInUser;
       

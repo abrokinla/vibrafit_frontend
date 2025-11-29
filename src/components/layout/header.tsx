@@ -7,6 +7,7 @@ import { Dumbbell, MessageSquare, Bell } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useTranslations } from 'next-intl';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { useNotifications } from '@/hooks/useNotifications';
 
 // Add these API functions
 import { apiUrl } from '@/lib/api';
@@ -20,19 +21,6 @@ async function getAuthHeaders() {
   };
 }
 
-async function getUnreadMessageCount(): Promise<number> {
-  try {
-    const headers = await getAuthHeaders();
-    const res = await fetch(apiUrl('/messages/unread-count/'), { headers });
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return data.count || 0;
-  } catch {
-    return 0;
-  }
-}
-
-// Badge component for counts
 function CountBadge({ count }: { count: number }) {
   if (count === 0) return null;
   
@@ -48,11 +36,12 @@ export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [dashboardPath, setDashboardPath] = useState<string>('');
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [messageCount, setMessageCount] = useState<number>(0);
-  const [notificationCount, setNotificationCount] = useState<number>(0);
   const [isClient, setIsClient] = useState(false);
-  const currentPathname = usePathname(); 
+  const currentPathname = usePathname();
   const router = useRouter();
+
+  // Use real-time notifications hook
+  const { unreadCount } = useNotifications();
 
   // Handle client-side hydration
   useEffect(() => {
@@ -80,40 +69,6 @@ export default function Header() {
     }
   }, [currentPathname]);
 
-  // Fetch counts when user is logged in
-  useEffect(() => {
-    if (!isLoggedIn || !isClient) return;
-
-    const fetchCounts = async () => {
-      try {
-        const [messages, 
-          // notifications
-        ] = await Promise.all([
-          getUnreadMessageCount(),
-          // getNotificationCount()
-        ]);
-        setMessageCount(messages);
-        // setNotificationCount(notifications);
-      } catch (error) {
-        console.error('Failed to fetch counts:', error);
-      }
-    };
-
-    fetchCounts();
-
-    // Refresh counts every 30 seconds
-    const interval = setInterval(fetchCounts, 30000);
-    
-    return () => clearInterval(interval);
-  }, [isLoggedIn, isClient]);
-
-  // Refresh counts when returning to messages page
-  useEffect(() => {
-    if (currentPathname.includes('/messages') && isLoggedIn) {
-      setMessageCount(0); // Reset message count when viewing messages
-    }
-  }, [currentPathname, isLoggedIn]);
-
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -121,9 +76,7 @@ export default function Header() {
     localStorage.removeItem('userRole');
     localStorage.removeItem('isOnboarded');
     setIsLoggedIn(false);
-    setMessageCount(0);
-    setNotificationCount(0);
-    router.push('/signin'); 
+    router.push('/signin');
   };
   
   const messagesPath = userRole === 'trainer' ? '/trainer/messages' : '/user/messages';
@@ -143,13 +96,13 @@ export default function Header() {
               <Button variant="ghost" size="icon" asChild className="relative">
                 <Link href={messagesPath as any}>
                   <MessageSquare />
-                  {isClient && <CountBadge count={messageCount} />}
+                  {isClient && <CountBadge count={unreadCount} />}
                   <span className="sr-only">{t('messagesButton')}</span>
                 </Link>
               </Button>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell />
-                {isClient && <CountBadge count={notificationCount} />}
+                {isClient && <CountBadge count={0} />}
                 <span className="sr-only">{t('notificationsButton')}</span>
               </Button>
               <Link href={dashboardPath as any} passHref>

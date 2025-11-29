@@ -57,7 +57,7 @@
     "title": "Crea Tu Cuenta de Vibrafit",
     "description": "¡Únete para comenzar a seguir tu viaje de fitness!",
     "roleLabel": "Registrarse como:",
-    "roleUser": "Usuario",
+    "roleMember": "Miembro",
     "roleTrainer": "Entrenador Físico",
     "emailLabel": "Correo Electrónico",
     "emailPlaceholder": "tu@ejemplo.com",
@@ -375,6 +375,7 @@
   "TrainerDashboardPage": {
     "title": "Panel de Entrenador",
     "description": "Supervisa a tus clientes y gestiona su progreso.",
+    "welcomeTrainer": "¡Bienvenido Entrenador {name}!",
     "activeClients": "Clientes Activos",
     "unreadMessages": "Mensajes No Leídos",
     "pendingActions": "Acciones Pendientes",
@@ -392,6 +393,9 @@
     "clientManagementPlaceholder": "La lista de clientes y las herramientas de gestión aparecerán aquí.",
     "loadingUser": "Cargando...",
     "errorLoadProfile": "No se pudo cargar tu perfil.",
+    "errorLoadPendingActions": "No se pudieron cargar las acciones pendientes.",
+    "errorLoadStats": "No se pudieron cargar las estadísticas del panel.",
+    "errorLoadClientCount": "No se pudo cargar el recuento de clientes activos.",
     "refreshErrorToastTitle": "Error al Refrescar",
     "refreshErrorToastDescription": "No se pudo actualizar la información de tu panel."
   },
@@ -494,7 +498,11 @@
   },
   "RecentActivityFeed": {
     "noActivity": "Aún no hay actividad reciente registrada."
+  },
+  "GymDashboardPage": {
+    "errorLoadingGyms": "Error al Cargar Gimnasios",
+    "errorLoadingGymsDesc": "No se pudieron cargar tus gimnasios. Por favor, intenta refrescar la página.",
+    "noGymsTitle": "No se Encontraron Gimnasios",
+    "noGymsDescription": "Aún no has creado ningún gimnasio. Comienza creando tu primer gimnasio."
   }
 }
-
-    

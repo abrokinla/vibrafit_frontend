@@ -23,14 +23,8 @@ export const { Link, redirect, usePathname, useRouter, getPathname } = createNav
     '/trainer/requests': '/trainer/requests',
     '/user/dashboard': '/user/dashboard',
     '/user/find-trainer': '/user/find-trainer',
-    '/user/find-trainer/[trainerId]': {
-      en: '/user/find-trainer/[trainerId]',
-      es: '/user/buscar-entrenador/[trainerId]',
-    },
-    '/profile/[userId]': {
-      en: '/profile/[userId]',
-      es: '/perfil/[userId]',
-    },
+    '/user/find-trainer/[trainerId]':'/user/find-trainer/[trainerId]',
+    '/profile/[userId]':'/profile/[userId]',
     '/user/measurements': '/user/measurements',
     '/user/nutrition': '/user/nutrition',
     '/user/profile': '/user/profile',

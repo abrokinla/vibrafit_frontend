@@ -1,7 +1,7 @@
 import { parseISO, differenceInDays, addDays } from 'date-fns';
 import axios from "axios";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 
 export function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
@@ -141,8 +141,19 @@ export interface Meal {
 }
 
 export interface NutritionPlan {
-  id?: number; 
+  id?: number;
   plan: number;
+  plan_details?: {
+    id: number;
+    user?: {
+      id: number;
+      name: string;
+    };
+    trainer?: {
+      id: number;
+      name: string;
+    };
+  };
   notes?: string;
   start_date: string;
   end_date: string;
@@ -230,8 +241,65 @@ export interface ClientDetailsForTrainer extends PublicProfileData {
   };
 }
 
+// Gym-related types
+export interface GymData {
+  id: number;
+  name: string;
+  description: string;
+  website: string;
+  phone: string;
+  address: string;
+  logo_url: string;
+  primary_color: string;
+  secondary_color: string;
+  header_image_url: string;
+  max_members: number;
+  member_count: number;
+  subscription_status: 'trial' | 'active' | 'expired' | 'suspended';
+  subscription_start: string | null;
+  subscription_end: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GymMemberData {
+  id: number;
+  user: number;
+  user_email: string;
+  user_name: string;
+  gym: number;
+  gym_name: string;
+  membership_status: 'pending' | 'active' | 'inactive' | 'suspended';
+  joined_at: string;
+  last_active: string;
+}
+
+export interface GymDetailsData extends GymData {
+  owner_name: string;
+  owner_email: string;
+  stats?: {
+    active_members: number;
+    max_members: number;
+  };
+}
+
+export interface GymOnboardingData {
+  name: string;
+  country: string;
+  state: string;
+  gymDetails: {
+    description?: string;
+    website?: string;
+    phone?: string;
+    address?: string;
+    max_members?: number;
+    primary_color?: string;
+    secondary_color?: string;
+  };
+}
+
 export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
-  const res = await fetch(apiUrl('/nutrition-plan/today/'), {
+  const res = await fetch(apiUrl('/users/nutrition-plan/today/'), {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -336,16 +404,134 @@ export interface Conversation {
 
 export type CombinedProfileData = UserData & TrainerProfileData;
 
-async function getAuthHeaders() {
-  // Only access localStorage on client-side, but don't create server/client branch
-  const token = localStorage.getItem('accessToken');
+// Token management
+class TokenManager {
+  private static instance: TokenManager;
+  private refreshPromise: Promise<void> | null = null;
+  private isRefreshing = false;
+
+  static getInstance(): TokenManager {
+    if (!TokenManager.instance) {
+      TokenManager.instance = new TokenManager();
+    }
+    return TokenManager.instance;
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  }
+
+  setTokens(accessToken: string, refreshToken: string): void {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+
+  clearTokens(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
+
+  async refreshAccessToken(): Promise<boolean> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      return false;
+    }
+
+    // Prevent multiple simultaneous refresh requests
+    if (this.isRefreshing) {
+      await this.refreshPromise;
+      return !!this.getAccessToken();
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      this.refreshPromise = this.performRefresh();
+      await this.refreshPromise;
+      return !!this.getAccessToken();
+    } catch (error) {
+      this.clearTokens();
+      return false;
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    }
+  }
+
+  private async performRefresh(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await fetch(apiUrl('/auth/token/refresh/'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Token refresh failed');
+    }
+
+    const data = await response.json();
+    const newAccessToken = data.access;
+    const newRefreshToken = data.refresh || refreshToken; // Some systems return new refresh token
+
+    this.setTokens(newAccessToken, newRefreshToken);
+  }
+}
+
+const tokenManager = TokenManager.getInstance();
+
+export { tokenManager };
+
+export async function getAuthHeaders(): Promise<{ 'Content-Type': string; Authorization: string }> {
+  let token = tokenManager.getAccessToken();
   if (!token) {
     throw new Error('NO_CREDENTIALS');
   }
+
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
   };
+}
+
+// Enhanced fetch wrapper with automatic token refresh
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  let response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(await getAuthHeaders()),
+      ...options.headers,
+    },
+  });
+
+  // If we get a 401, try to refresh token once
+  if (response.status === 401) {
+    const refreshed = await tokenManager.refreshAccessToken();
+    if (refreshed) {
+      // Retry with new token
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          ...(await getAuthHeaders()),
+          ...options.headers,
+        },
+      });
+    }
+  }
+
+  return response;
 }
 
 export async function getUserData(): Promise<UserData> {
@@ -383,10 +569,15 @@ export async function getUserData(): Promise<UserData> {
 }
 
 export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
+  const profileUrl = apiUrl('/users/profile/');
+
   const headers = await getAuthHeaders();
-  const userRes = await fetch(apiUrl('/users/profile/'), { headers });
+
+  const userRes = await fetch(profileUrl, { headers });
 
   if (!userRes.ok) {
+    const responseText = await userRes.text();
+    console.error('Profile fetch error response:', responseText);
     if (userRes.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error('Failed to fetch user profile');
   }
@@ -402,7 +593,7 @@ export async function fetchCombinedProfile(): Promise<CombinedProfileData> {
   // Only fetch trainer data if role is 'trainer'
   let trainerData = {};
   if (userData.role === 'trainer') {
-  const trainerRes = await fetch(apiUrl('/trainers/profile/'), { headers });
+  const trainerRes = await fetch(apiUrl('/users/trainer-profile/profile/'), { headers });
     if (trainerRes.ok) {
       trainerData = await trainerRes.json();
     } else {
@@ -484,19 +675,60 @@ export async function completeTrainerOnboarding(
     state: string;
     profilePictureUrl?: string;
     professionalInfo: Partial<TrainerProfileData>;
+    interests?: number[];
   }
 ): Promise<{ success: boolean; message?: string }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl(`/users/${userId}/onboard/`), {
+  const url = apiUrl('/trainer/onboard/');
+
+  console.log('API CALL DEBUG: completeTrainerOnboarding (NEW ENDPOINT)', {
+    userId,
+    url,
+    method: 'POST',
+    headers: { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined },
+    data
+  });
+
+  const res = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(data),
   });
 
+  console.log('API RESPONSE DEBUG:', {
+    url,
+    status: res.status,
+    statusText: res.statusText,
+    ok: res.ok
+  });
+
   if (!res.ok) {
-    const errorData = await res.json();
-    return { success: false, message: errorData.detail || 'Onboarding failed' };
+    const errorData = await res.json().catch(() => ({}));
+    console.log('API ERROR DEBUG - Complete response:', {
+      status: res.status,
+      statusText: res.statusText,
+      url,
+      errorData,
+      fullResponse: errorData
+    });
+
+    // Log detailed field validation errors if available
+    if (errorData.errors) {
+      console.error('VALIDATION ERRORS from backend:', errorData.errors);
+    }
+    if (errorData.errors && typeof errorData.errors === 'string' &&
+        errorData.errors.includes('Missing required trainer fields')) {
+      console.error('BACKEND FIELD VALIDATION ERROR:', {
+        errorDetail: errorData.errors,
+        expectedFields: ['bio', 'certifications', 'experience_years', 'specializations'],
+        sentData: data
+      });
+    }
+    return { success: false, message: errorData.message || errorData.errors || 'Onboarding failed' };
   }
+
+  const responseData = await res.json().catch(() => ({}));
+  console.log('API SUCCESS DEBUG:', responseData);
   return { success: true };
 }
 
@@ -511,7 +743,7 @@ export const saveMetrics = async (
   const headers = await getAuthHeaders();
   try {
     for (const { type, value } of metrics) {
-  await fetch(apiUrl('/metrics/'), {
+  await fetch(apiUrl('/users/metrics/'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ type, value }),
@@ -585,21 +817,21 @@ export async function calculateLongestStreak(token: string): Promise<number> {
 
 export async function fetchConversations(): Promise<Conversation[]> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl('/messages/conversations/'), { headers });
+  const res = await fetch(apiUrl('/users/messages/conversations/'), { headers });
   if (!res.ok) throw new Error('Failed to fetch conversations');
   return res.json();
 }
 
 export async function fetchMessages(otherUserId: number): Promise<Message[]> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl(`/messages/?with_user=${otherUserId}`), { headers });
+  const res = await fetch(apiUrl(`/users/messages/?with_user=${otherUserId}`), { headers });
   if (!res.ok) throw new Error('Failed to fetch messages');
   return res.json();
 }
 
 export async function sendMessage(recipientId: number, content: string): Promise<Message> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl('/messages/'), {
+  const res = await fetch(apiUrl('/users/messages/'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ recipient: recipientId, content }),
@@ -613,7 +845,7 @@ export async function sendMessage(recipientId: number, content: string): Promise
 
 export async function markConversationAsRead(otherUserId: number): Promise<void> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl('/messages/mark_conversation_read/'), {
+  const res = await fetch(apiUrl('/users/messages/mark_conversation_read/'), {
     method: 'POST',
     headers,
     body: JSON.stringify({ other_user_id: otherUserId }),
@@ -621,17 +853,9 @@ export async function markConversationAsRead(otherUserId: number): Promise<void>
   if (!res.ok) throw new Error('Failed to mark conversation as read');
 }
 
-export async function getUnreadMessageCount(): Promise<number> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl('/messages/unread_count/'), { headers });
-  if (!res.ok) throw new Error('Failed to fetch unread count');
-  const data = await res.json();
-  return data.count;
-}
-
 export async function fetchActiveClientCount(): Promise<number> {
   const headers = await getAuthHeaders();
-  const response = await fetch(apiUrl('/trainer-profile/clients/'), {
+  const response = await fetch(apiUrl('/users/trainer-profile/clients/'), {
     method: 'GET',
     headers,
   });
@@ -660,90 +884,87 @@ export async function fetchTrainerClientDailyLogs(limit: number = 10): Promise<D
 }
 
 // --- Timeline API Functions ---
-const allPosts: Post[] = [
-    {
-      id: 'post-1',
-      author: { id: 101, name: 'Jane Doe', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
-      content: 'Just crushed my morning workout! Feeling energized and ready to take on the day. #FitnessJourney #Vibrafit',
-      imageUrl: 'https://placehold.co/600x400.png',
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      stats: { likes: 15, reposts: 3, comments: 2 },
-      isLiked: false,
-    },
-    {
-      id: 'post-2',
-      author: { id: 2, name: 'John Thorn', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'trainer' },
-      content: 'New video on proper squat form is up! Check it out to avoid common mistakes and maximize your gains. Let me know if you have questions!',
-      videoUrl: 'https://www.youtube.com/watch?v=bEv6CCg2BC8', // A real squat video
-      createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-      stats: { likes: 42, reposts: 12, comments: 8 },
-      isLiked: true,
-    },
-    {
-      id: 'post-3',
-      author: { id: 102, name: 'Carlos Estevez', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'client' },
-      content: 'Meal prep for the week is done! Eating healthy is so much easier when you plan ahead.',
-      imageUrl: 'https://placehold.co/600x300.png',
-      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      stats: { likes: 28, reposts: 5, comments: 4 },
-      isLiked: false,
-    },
-     {
-      id: 'post-4',
-      author: { id: 2, name: 'John Thorn', profilePictureUrl: 'https://placehold.co/100x100.png', role: 'trainer' },
-      content: 'Client progress highlight! So proud of the dedication shown here.',
-      imageUrl: 'https://placehold.co/400x600.png',
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      stats: { likes: 55, reposts: 20, comments: 15 },
-      isLiked: true,
-    },
-  ];
-
 export async function fetchTimelinePosts(authorId?: string): Promise<Post[]> {
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-  
-  let posts = allPosts;
-  if (authorId) {
-    posts = allPosts.filter(p => p.author.id.toString() === authorId);
+  const headers = await getAuthHeaders();
+  const url = authorId
+    ? apiUrl(`/users/posts/?author=${authorId}`)
+    : apiUrl('/users/posts/');
+
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch timeline posts');
   }
-  
-  return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const posts = await response.json();
+  return posts;
 }
 
-export async function likePost(postId: string, like: boolean): Promise<{ success: boolean; newLikeCount: number }> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    console.log(`Post ${postId} like status set to ${like}`);
-    // In a real app, you would get the new like count from the server response.
-    // For now, we'll just simulate it.
-    const currentLikes = Math.floor(Math.random() * 50);
-    return { success: true, newLikeCount: like ? currentLikes + 1 : currentLikes };
+export async function likePost(postId: string): Promise<{ liked: boolean; likes_count: number }> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl(`/users/posts/${postId}/like/`), {
+    method: 'POST',
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to like/unlike post');
+  }
+
+  return response.json();
 }
 
 export async function createPost(content: string, mediaUrl?: string, mediaType?: 'image' | 'video'): Promise<{ success: boolean; newPost?: Post }> {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  try {
-    const currentUser = await getUserData();
-    const newPost: Post = {
-        id: `post-${Date.now()}`,
-        author: {
-            id: currentUser.id,
-            name: currentUser.name || 'New User',
-            profilePictureUrl: currentUser.profilePictureUrl,
-            role: currentUser.role
-        },
-        content: content,
-        imageUrl: mediaType === 'image' ? mediaUrl : undefined,
-        videoUrl: mediaType === 'video' ? mediaUrl : undefined,
-        createdAt: new Date().toISOString(),
-        stats: { likes: 0, reposts: 0, comments: 0 },
-        isLiked: false,
-    };
-    allPosts.unshift(newPost); // Add to our mock database
-    return { success: true, newPost: newPost };
-  } catch (error) {
-    console.error("Cannot create post without user data", error);
-    return { success: false };
+  const headers = await getAuthHeaders();
+
+  const postData: any = { content };
+  if (mediaUrl) {
+    if (mediaType === 'image') {
+      postData.image_url = mediaUrl;
+    } else if (mediaType === 'video') {
+      postData.video_url = mediaUrl;
+    }
   }
+
+  const response = await fetch(apiUrl('/users/posts/'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(postData),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create post');
+  }
+
+  const newPost = await response.json();
+  return { success: true, newPost };
+}
+
+export async function uploadPostMedia(file: File, mediaType: 'image' | 'video' = 'image'): Promise<{ url: string; public_id?: string; type: string }> {
+  const headers = await getAuthHeaders();
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', mediaType);
+
+  const response = await fetch(apiUrl('/users/posts/upload-media/'), {
+    method: 'POST',
+    headers: {
+      Authorization: headers.Authorization, // Keep only Authorization header
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to upload media');
+  }
+
+  const data = await response.json();
+  return {
+    url: data.url,
+    public_id: data.public_id,
+    type: data.type || mediaType
+  };
 }
 
 export async function fetchPublicUserProfile(userId: string): Promise<PublicProfileData | null> {
@@ -776,7 +997,7 @@ export async function fetchPublicUserProfile(userId: string): Promise<PublicProf
 
 export async function fetchPendingSubscriptions(): Promise<SubscriptionRequest[]> {
   const headers = await getAuthHeaders();
-  const response = await fetch(apiUrl('/subscriptions/pending-requests/'), {
+  const response = await fetch(apiUrl('/users/subscriptions/pending-requests/'), {
     method: 'GET',
     headers,
   });
@@ -792,40 +1013,13 @@ export async function fetchPendingSubscriptions(): Promise<SubscriptionRequest[]
 export async function fetchClientDetailsForTrainer(clientId: number): Promise<ClientDetailsForTrainer | null> {
   try {
     const headers = await getAuthHeaders();
-  const userRes = await fetch(apiUrl(`/users/${clientId}/`), { headers });
-    if (!userRes.ok) {
-      if (userRes.status === 404) return null;
-      throw new Error('Failed to fetch client data');
+    const response = await fetch(apiUrl(`/users/${clientId}/client-details/`), { headers });
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error('Failed to fetch client details');
     }
-    const userData: ClientDetailsForTrainer = await userRes.json();
-
-    // Fetch client goals
-  const goalsRes = await fetch(apiUrl(`/goals/?user=${clientId}`), { headers });
-    let goal = null;
-    if (goalsRes.ok) {
-      const goalsData = await goalsRes.json();
-      // Assume the latest goal is the most relevant
-      goal = goalsData.length > 0 ? goalsData[0] : null;
-    }
-
-    // Fetch client metrics
-  const metricsRes = await fetch(apiUrl(`/metrics/?user=${clientId}`), { headers });
-    let metrics = {};
-    if (metricsRes.ok) {
-      const metricsData = await metricsRes.json();
-      metrics = metricsData.reduce((acc: any, metric: any) => ({
-        ...acc,
-        [metric.type]: metric.value,
-      }), {});
-    }
-
-    return {
-      ...userData,
-      goal,
-      metrics,
-      beforePhotoUrl: userData.beforePhotoUrl || null,
-      currentPhotoUrl: userData.currentPhotoUrl || null,
-    };
+    const data = await response.json();
+    return data;
   } catch (err) {
     console.error(`Error fetching client details for user ${clientId}:`, err);
     throw err;
@@ -837,7 +1031,7 @@ export async function respondToSubscriptionRequest(
   status: 'active' | 'declined'
 ) {
   const endpoint = status === 'active' ? 'accept' : 'decline';
-  const url = apiUrl(`/subscriptions/${id}/${endpoint}/`);
+  const url = apiUrl(`/users/subscriptions/${id}/${endpoint}/`);
   const headers = await getAuthHeaders();
   
   
@@ -854,7 +1048,6 @@ export async function respondToSubscriptionRequest(
     }
 
     const responseData = await res.json();
-    console.log('Success response:', responseData);
     return responseData;
   } catch (error) {
     console.error('Network error:', error);
@@ -896,7 +1089,7 @@ export async function createPresetRoutine(
 ): Promise<{ success: true; newPreset: PresetRoutine } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-  const response = await fetch(apiUrl('/preset-routines/'), {
+  const response = await fetch(apiUrl('/users/preset-routines/'), {
       method: 'POST',
       headers,
       body: JSON.stringify(routineData),
@@ -919,7 +1112,7 @@ export async function createPresetRoutine(
 export async function fetchPresetRoutines(): Promise<PresetRoutine[]> {
   try {
     const headers = await getAuthHeaders();
-  const response = await fetch(apiUrl('/preset-routines/'), {
+  const response = await fetch(apiUrl('/users/preset-routines/'), {
       method: 'GET',
       headers,
     });
@@ -980,7 +1173,7 @@ export async function updatePresetRoutine(
 ): Promise<{ success: true; preset: PresetRoutine } | { success: false; error: string }> {
   try {
     const headers = await getAuthHeaders();
-  const response = await fetch(apiUrl(`/preset-routines/${id}/`), {
+  const response = await fetch(apiUrl(`/users/preset-routines/${id}/`), {
       method: 'PUT',
       headers,
       body: JSON.stringify(routineData),
@@ -1116,7 +1309,7 @@ export async function getInterests(): Promise<ApiSuccess<Interest[]> | ApiFailur
 
 export async function createInterest(payload: { name: string }): Promise<ApiSuccess<Interest> | ApiFailure> {
   const headers = await getAuthHeaders();
-  const res = await fetch(apiUrl('/interests/'), {
+  const res = await fetch(apiUrl('/users/interests/'), {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -1129,12 +1322,234 @@ export async function createInterest(payload: { name: string }): Promise<ApiSucc
   return { success: true, data };
 }
 
+// --- Gym API Functions ---
+
+/**
+ * Get all gyms owned by the current user
+ */
+export async function fetchMyGyms(): Promise<GymData[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl('/gyms/'), { headers });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch gyms');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching gyms:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new gym
+ */
+export async function createGym(gymData: Partial<GymData>): Promise<GymData> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl('/gyms/'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(gymData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create gym');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating gym:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update an existing gym
+ */
+export async function updateGym(gymId: number, gymData: Partial<GymData>): Promise<GymData> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/`), {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(gymData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to update gym');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating gym:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get gym details for landing page (public access)
+ */
+export async function fetchGymDetails(gymId: number): Promise<GymDetailsData> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/details/`), { headers });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch gym details');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching gym details:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get public gym details by name (no auth required)
+ */
+export async function fetchPublicGymDetails(gymName: string): Promise<GymDetailsData> {
+  try {
+    const response = await fetch(apiUrl(`/gyms/gym/${gymName}/public-details/`));
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch public gym details');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching public gym details:', error);
+    throw error;
+  }
+}
+
+/**
+ * Join a gym (request membership)
+ */
+export async function joinGym(gymId: number): Promise<{ detail: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/join/`), {
+      method: 'POST',
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to join gym');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error joining gym:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get gym members (gym owner only)
+ */
+export async function fetchGymMembers(gymId: number): Promise<GymMemberData[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/members/`), { headers });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch gym members');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching gym members:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve a gym member (gym owner only)
+ */
+export async function approveGymMember(gymId: number, userId: number): Promise<{ detail: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/approve-member/`), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ user_id: userId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to approve member');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error approving gym member:', error);
+    throw error;
+  }
+}
+
+/**
+ * Leave a gym (member action)
+ */
+export async function leaveGym(membershipId: number): Promise<{ detail: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/members/${membershipId}/leave/`), {
+      method: 'POST',
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to leave gym');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error leaving gym:', error);
+    throw error;
+  }
+}
+
+/**
+ * Complete gym onboarding (update gym details after initial signup)
+ */
+export async function completeGymOnboarding(
+  userId: string,
+  gymId: string,
+  data: GymOnboardingData
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(apiUrl(`/gyms/${gymId}/onboard/`), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { success: false, message: errorData.detail || 'Gym onboarding failed' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error completing gym onboarding:', error);
+    return { success: false, message: error.message || 'Failed to complete gym onboarding' };
+  }
+}
+
 // --- Forgot Password ---
 export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
   // MOCK: In a real app, this would call your backend endpoint.
   // The backend would handle token generation and sending the email.
   await new Promise(resolve => setTimeout(resolve, 1000));
-  console.log(`Password reset requested for email: ${email}`);
 
   // Simulate success regardless of whether the email exists to prevent email enumeration.
   return {

@@ -33,7 +33,7 @@ export default function UserProfilePage() {
         // Ensure fields like trainingLevel, weight, height, bodyFat are initialized if not present
         const profileDataWithDefaults: UserData = {
           ...data,
-          trainingLevel: data.trainingLevel || '',
+          training_level: data.training_level || '',
           metrics: {
             weight: data.metrics?.weight ?? null,
             height: data.metrics?.height ?? null,
@@ -103,7 +103,7 @@ export default function UserProfilePage() {
 
   const handleTrainingLevelChange = (value: 'beginner' | 'intermediate' | 'advanced' | '') => {
     if (!profile) return;
-    setProfile({ ...profile, trainingLevel: value });
+    setProfile({ ...profile, training_level: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,7 +115,7 @@ export default function UserProfilePage() {
       const profileResult = await saveUserProfile({
         name: profile.name,
         date_of_birth: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null,
-        trainingLevel: profile.trainingLevel || null,
+        training_level: profile.training_level || null,
         state: profile.state,
         country: profile.country,
       });
@@ -226,7 +226,7 @@ export default function UserProfilePage() {
                     onSelect={handleDateChange}
                     captionLayout="dropdown-buttons"
                     fromYear={1900}
-                    toYear={new Date().getFullYear()}
+                    toYear={2030}
                     initialFocus
                     disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                   />
@@ -238,7 +238,7 @@ export default function UserProfilePage() {
                     <Activity className="h-4 w-4" /> {t('trainingLevelLabel')}
                 </Label>
                 <Select
-                    value={profile.trainingLevel || ''}
+                    value={profile.training_level || ''}
                     onValueChange={(value: 'beginner' | 'intermediate' | 'advanced' | '') => handleTrainingLevelChange(value)}
                     disabled={isSaving}
                 >

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { apiUrl } from "./api"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -25,7 +26,7 @@ export const uploadProfilePicture = async (file: File) => {
 
     const newUrl = cloudinaryData.secure_url;
 
-    const backendRes = await fetch('https://vibrafit.onrender.com/api/users/upload-profile-picture/', {
+    const backendRes = await fetch(apiUrl('/users/upload-profile-picture/'), {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -84,7 +85,7 @@ export async function uploadProgressPhoto(
   try {
     const token = localStorage.getItem('accessToken');
     const res = await fetch(
-      `https://vibrafit.onrender.com/api/users/${actionPath}/`,
+      apiUrl(`/users/${actionPath}/`),
       {
         method: 'PATCH',
         headers: {

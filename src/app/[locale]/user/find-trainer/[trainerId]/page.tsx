@@ -4,7 +4,7 @@
 export const runtime = 'edge';  
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation'; // Keep this for client component param access
+import { useParams } from 'next/navigation';
 import { Link, useRouter } from '@/navigation'; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,8 +19,8 @@ import Image from "next/image";
 
 type TrainerProfile = CombinedProfileData;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -28,38 +28,24 @@ async function fetchTrainerById(trainerUserId: string, token: string | null): Pr
   if (!trainerUserId || !token) return null;
 
   try {
-    const userRes = await fetch(`https://vibrafit.onrender.com/api/users/${trainerUserId}/`, {
+    // Single consolidated API call
+    const res = await fetch(apiUrl(`/users/${trainerUserId}/public-profile/`), {
       headers: { 'Authorization': `Bearer ${token}` },
     });
-    if (!userRes.ok) throw new Error('Failed to fetch base trainer user data');
-    const userData = await userRes.json();
+    if (!res.ok) throw new Error('Failed to fetch trainer data');
+    const data = await res.json();
 
-    const profileRes = await fetch(`https://vibrafit.onrender.com/api/trainer-profile/by-user/${trainerUserId}/`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    
-    let trainerProfileData = {};
-    if (profileRes.ok) {
-      trainerProfileData = await profileRes.json();
-    } else {
-      // It's possible a trainer user exists but hasn't filled out their trainer profile
-      console.warn(`Trainer profile details not found for user ID: ${trainerUserId}. Response status: ${profileRes.status}`);
-    }
-
-    // Mock rating
-    const mockedRating = { rating: 4.8 };
-
-    return { ...userData, ...trainerProfileData, ...mockedRating } as TrainerProfile;
+    // Data is already consolidated from the backend
+    return { ...data } as TrainerProfile;
 
   } catch (err) {
-    console.error("Error fetching trainer by ID:", err);
     return null;
   }
 }
 
 export default function TrainerDetailPage() {
   const t = useTranslations('TrainerDetailPage');
-  const params = useParams(); // Gets { locale: 'xx', trainerId: 'yy' }
+  const params = useParams(); 
   const router = useRouter();
   const { toast } = useToast();
   
@@ -90,22 +76,14 @@ export default function TrainerDetailPage() {
         ]);
 
         if (!trainerData) throw new Error("Trainer not found or could not be loaded.");
+
+        // Set subscription status from the consolidated response
+        setSubscriptionStatus((trainerData as any).subscriptionStatus?.status || 'none');
+
         setTrainer(trainerData);
         setTrainerPosts(postsData);
 
-        // Check subscription status
-        const subStatusRes = await fetch(`https://vibrafit.onrender.com/api/subscriptions/subscription-status/?trainer_id=${trainerId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (subStatusRes.ok) {
-          const subStatusData = await subStatusRes.json();
-          setSubscriptionStatus(subStatusData.status || 'none');
-        } else {
-          console.warn('Could not determine subscription status.');
-        }
-
       } catch (err: any) {
-        console.error("Error in TrainerDetailPage useEffect:", err);
         toast({
           title: t('errorTitle'),
           description: err.message || t('errorLoadDetails'),
@@ -121,31 +99,30 @@ export default function TrainerDetailPage() {
 
 
   const handleSubscribe = async () => {
-    if (!trainer || !trainerId) return;
+    if (!trainer || !trainerId) {
+      return;
+    }
 
     const token = localStorage.getItem('accessToken');
+
     if (!token) {
       toast({ title: t('errorTitle'), description: t('toastErrorNotAuthenticated'), variant: "destructive" });
       return;
     }
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setMonth(startDate.getMonth() + 1);
+    const requestData = {
+      trainer: trainerId,
+      // Backend automatically sets status, start_date, and end_date
+    };
 
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    const requestUrl = apiUrl('/users/subscriptions/');
 
     setIsSubscribing(true);
     try {
-      const subRes = await fetch('https://vibrafit.onrender.com/api/subscriptions/', {
+      const subRes = await fetch(requestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          trainer: trainerId,
-          status: "pending", // changed from "active"
-          start_date: formatDate(startDate),
-          end_date: formatDate(endDate),
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!subRes.ok) {
@@ -161,7 +138,6 @@ export default function TrainerDetailPage() {
      setSubscriptionStatus('pending');
 
     } catch (error: any) {
-      console.error("Subscription request error:", error);
       toast({ title: t('errorTitle'), description: error.message || t('toastErrorSubscription'), variant: "destructive" });
     } finally {
       setIsSubscribing(false);
@@ -212,9 +188,7 @@ export default function TrainerDetailPage() {
     );
   }
   
-  const specializations = Array.isArray(trainer.specializations) 
-    ? trainer.specializations 
-    : (typeof trainer.specializations === 'string' ? trainer.specializations.split(',').map(s => s.trim()).filter(s => s) : []);
+  const specializations: string[] = trainer.specializations || [];
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-0">
@@ -255,9 +229,9 @@ export default function TrainerDetailPage() {
                     </div>
                     <div className="space-y-2">
                         <h3 className="text-lg font-semibold flex items-center gap-2 text-primary"><Award className="h-5 w-5"/> {t('certificationsSectionTitle')}</h3>
-                        {trainer.certifications && trainer.certifications.length > 0 ? (
+                        {trainer.certifications && Array.isArray(trainer.certifications) && trainer.certifications.length > 0 ? (
                             <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-1">
-                                {trainer.certifications.split(',').map((cert, index) => <li key={index}>{cert.trim()}</li>)}
+                                {trainer.certifications.map((cert: string, index: number) => <li key={index}>{cert.trim()}</li>)}
                             </ul>
                         ) : <p className="text-muted-foreground">{t('noCertificationsListed')}</p>}
                     </div>
@@ -266,7 +240,7 @@ export default function TrainerDetailPage() {
                     <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">{t('specializationsSectionTitle')}</h3>
                      {specializations.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                            {specializations.map((spec, index) => (
+                            {specializations.map((spec: string, index: number) => (
                                 <Badge key={index} variant="default" className="text-sm py-1 px-3 shadow-sm">{spec}</Badge>
                             ))}
                         </div>

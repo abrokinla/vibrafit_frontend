@@ -12,8 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getUserData, UserData, fetchPendingSubscriptions, fetchConversations, fetchActiveClientCount } from '@/lib/api';
 import { useTranslations } from 'next-intl';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -54,15 +54,13 @@ async function getTrainerUnreadMessageCount(): Promise<number> {
       Authorization: `Bearer ${token}`,
     };
     
-  const res = await fetch(apiUrl('/messages/unread_count/'), { headers });
+  const res = await fetch(apiUrl('/users/messages/unread_count/'), { headers });
     if (!res.ok) {
-      console.error('Failed to fetch unread count:', await res.text());
       return 0;
     }
     const data = await res.json();
     return data.count || 0;
   } catch (error) {
-    console.error('Error fetching unread message count:', error);
     return 0;
   }
 }
@@ -78,9 +76,8 @@ async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse
       Authorization: `Bearer ${token}`,
     };
     
-  const res = await fetch(apiUrl('/messages/conversations/'), { headers });
+  const res = await fetch(apiUrl('/users/messages/conversations/'), { headers });
     if (!res.ok) {
-      console.error('Failed to fetch conversations:', await res.text());
       // Return consistent structure even on error
       return {
         conversations: [],
@@ -88,12 +85,12 @@ async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse
         conversationsWithUnread: []
       };
     }
-    
+
     const conversations: ConversationData[] = await res.json();
     const totalUnread = conversations.reduce((sum: number, conv: ConversationData) => {
       return sum + (conv.unread_count || 0);
     }, 0);
-    
+
     // Filter and deduplicate conversations with unread messages by user id
     const conversationsWithUnread = Object.values(
       conversations.filter((conv: ConversationData) => conv.unread_count > 0)
@@ -109,7 +106,6 @@ async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse
       conversationsWithUnread
     };
   } catch (error) {
-    console.error('Error fetching conversations:', error);
     // Always return consistent structure
     return {
       conversations: [],
@@ -165,7 +161,6 @@ export default function TrainerDashboardPage() {
         try {
           clientCount = await fetchActiveClientCount();
         } catch (err: any) {
-          console.error('Error fetching client count:', err);
           toast({
             title: t('errorLoadStats'),
             description: t('errorLoadClientCount'),
@@ -178,7 +173,6 @@ export default function TrainerDashboardPage() {
           unreadMessages = messageData.totalUnread;
           conversationsWithUnread = messageData.conversationsWithUnread;
         } catch (err: any) {
-          console.error('Error fetching message data:', err);
           toast({
             title: t('errorLoadStats'),
             description: t('errorLoadMessages'),
@@ -190,7 +184,6 @@ export default function TrainerDashboardPage() {
           const pendingSubs = await fetchPendingSubscriptions();
           pendingActions = pendingSubs.length;
         } catch (err: any) {
-          console.error('Error fetching pending subscriptions:', err);
           toast({
             title: t('errorLoadStats'),
             description: t('errorLoadPendingActions'),
@@ -266,6 +259,7 @@ export default function TrainerDashboardPage() {
         <OnboardingModal isOpen={showOnboarding} onClose={handleOnboardingClose} userId={user.id.toString()} />
       )}
       <h1 className="text-3xl font-bold">{t('title')}</h1>
+      <p className="text-xl font-medium mb-4">{t('welcomeTrainer', { name: user.name || "Trainer" })}</p>
       <p className="text-muted-foreground">{t('description')}</p>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -439,4 +433,4 @@ export default function TrainerDashboardPage() {
       </Card>
     </div>
   );
-} 
+}

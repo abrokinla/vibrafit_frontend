@@ -16,16 +16,29 @@ import {
 } from '@/lib/api';
 import ClientDetailsModal from '@/components/trainer/client-details-modal';
 import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es, enUS } from 'date-fns/locale';
+import { useLocale } from 'next-intl';
 
 export default function PendingRequestsPage() {
   const t = useTranslations('PendingRequestsPage');
   const { toast } = useToast();
+  const locale = useLocale();
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isResponding, setIsResponding] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+
+  // Get the appropriate date-fns locale based on current locale
+  const getDateLocale = () => {
+    switch (locale) {
+      case 'es':
+        return es;
+      case 'en':
+      default:
+        return enUS;
+    }
+  };
 
   useEffect(() => {
     setIsLoading(true);
@@ -48,16 +61,8 @@ export default function PendingRequestsPage() {
   ) => {
     setIsResponding(subscriptionId);
     
-    // Add debugging logs
-    console.log('=== DEBUG INFO ===');
-    console.log('Subscription ID:', subscriptionId);
-    console.log('Client ID:', clientId);
-    console.log('Status:', status);
-    console.log('Current user token:', localStorage.getItem('accessToken'));
-    
     try {
       const result = await respondToSubscriptionRequest(subscriptionId, status);
-      console.log('API Response:', result);
       
       if (result.success) {
         setRequests(prev => prev.filter(req => req.id !== subscriptionId));
@@ -142,7 +147,7 @@ export default function PendingRequestsPage() {
                   <CardDescription className="flex items-center gap-1 text-xs">
                     <Calendar className="h-3 w-3" />
                     {t('requestedTime', {
-                      time: formatDistanceToNow(new Date(req.requested_at), { addSuffix: true, locale: es })
+                      time: formatDistanceToNow(new Date(req.requested_at), { addSuffix: true, locale: getDateLocale() })
                     })}
                   </CardDescription>
                 </div>

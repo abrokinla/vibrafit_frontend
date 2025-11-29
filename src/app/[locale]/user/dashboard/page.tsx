@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react";
-import { getUserData, UserData, LoggedMeal, DailyLog, Activity } from '@/lib/api';
+import { getUserData, fetchCombinedProfile, UserData, CombinedProfileData, LoggedMeal, DailyLog, Activity } from '@/lib/api';
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
@@ -163,7 +163,7 @@ export default function UserDashboardPage() {
       }
 
       try {
-        const data = await getUserData();
+        const data = await fetchCombinedProfile();
         setUser(data);
         
         if (!data.is_onboarded) {
@@ -277,8 +277,8 @@ export default function UserDashboardPage() {
   };
   
   const handleOnboardingComplete = async () => {
-    try {   
-      const updatedUser = await getUserData();    
+    try {
+      const updatedUser = await fetchCombinedProfile();
       setUser(updatedUser);
       setShowOnboarding(!updatedUser.is_onboarded);
       toast({

@@ -64,7 +64,7 @@
     "title": "Crea Tu Cuenta de Vibrafit",
     "description": "¡Únete para comenzar a seguir tu viaje de fitness!",
     "roleLabel": "Registrarse como:",
-    "roleUser": "Usuario",
+    "roleMember": "Miembro",
     "roleTrainer": "Entrenador Físico",
     "roleGym": "Dueño de Gimnasio",
     "gymNameLabel": "Nombre del Gimnasio",
@@ -82,7 +82,9 @@
     "errorSignup": "Error al registrarse",
     "signUpButton": "Regístrate",
     "hasAccountPrompt": "¿Ya tienes una cuenta?",
-    "signInLink": "Iniciar Sesión"
+    "signInLink": "Iniciar Sesión",
+    "nameLabel": "Nombre del Dueño del Gimnasio",
+    "namePlaceholder": "Tu Nombre Completo"
   },
     "ForgotPasswordPage": {
     "title": "¿Olvidaste tu contraseña?",
@@ -552,7 +554,10 @@
     "loadingUser": "Cargando...",
     "errorLoadProfile": "No se pudo cargar tu perfil.",
     "refreshErrorToastTitle": "Error al Refrescar",
-    "refreshErrorToastDescription": "No se pudo actualizar la información de tu panel."
+    "refreshErrorToastDescription": "No se pudo actualizar la información de tu panel.",
+    "errorLoadStats": "No se pudieron cargar las estadísticas del entrenador. Por favor, inténtalo de nuevo más tarde.",
+    "errorLoadClientCount": "No se pudo cargar el recuento de clientes activos.",
+    "errorLoadPendingActions": "No se pudieron cargar las acciones pendientes. Por favor, actualiza la página o verifica tu conexión."
   },
   "TrainerProfilePage": {
     "title": "Mi Perfil de Entrenador",
@@ -660,7 +665,10 @@
     "noPresets": "No hay plantillas disponibles para este nivel.",
     "uploading": "Subiendo...",
     "toastFileSizeErrorTitle": "Archivo demasiado grande",
-    "toastFileSizeErrorDesc": "Por favor, selecciona un archivo de video menor a 10MB."
+    "toastFileSizeErrorDesc": "Por favor, selecciona un archivo de video menor a 10MB.",
+    "assignedNutritionPlansTitle": "Planes de Nutrición Asignados",
+    "assignedNutritionPlansDescription": "Ver y gestionar planes de nutrición asignados a tus clientes",
+    "noAssignedNutritionPlans": "Aún no hay planes de nutrición asignados"
   },
    "TrainerPresetsPage": {
       "title": "Plantillas de Ejercicio",
