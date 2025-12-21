@@ -1,10 +1,53 @@
+'use client';
+
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@/navigation';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export const runtime = 'edge';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const userRole = localStorage.getItem('userRole');
+
+        if (!token || userRole !== 'admin') {
+          router.push('/signin');
+          return;
+        }
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.clear();
+        router.push('/signin');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect
+  }
   return (
     <div className="flex gap-6 min-h-screen bg-background">
       {/* Sidebar Navigation */}
@@ -56,6 +99,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-3">System</p>
             <NavLink href="/admin/settings" label="Settings" icon="⚙️" />
             <NavLink href="/admin/reports" label="Reports" icon="📊" />
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-border">
+            <button
+              onClick={() => {
+                localStorage.clear();
+                router.push('/signin');
+              }}
+              className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-red-50 hover:text-red-700 transition-colors text-red-600 w-full text-left"
+            >
+              <span className="text-lg">🚪</span>
+              <span className="text-sm font-medium">Logout</span>
+            </button>
           </div>
         </nav>
       </aside>
