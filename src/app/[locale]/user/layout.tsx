@@ -21,7 +21,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
           <header className="md:hidden p-4 border-b sticky top-0 bg-background z-10 print:hidden">
             <SidebarTrigger />
           </header>
-          <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <main className="flex-1 overflow-y-auto p-2 md:p-8">
             {children}
           </main>
         </SidebarInset>
