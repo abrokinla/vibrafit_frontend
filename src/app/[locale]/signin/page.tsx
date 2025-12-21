@@ -62,9 +62,10 @@ export default function SignInPage() {
         return;
       }
   
-      const { access, refresh } = await response.json();
+      const { access } = await response.json();
 
-      tokenManager.setTokens(access, refresh);
+      // Store access token in memory (refresh token is now in httpOnly cookie)
+      tokenManager.setTokens(access);
 
       const userProfileRes = await fetch(apiUrl('/users/profile/'), {
         headers: { Authorization: `Bearer ${access}` },

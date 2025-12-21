@@ -404,11 +404,12 @@ export interface Conversation {
 
 export type CombinedProfileData = UserData & TrainerProfileData;
 
-// Token management
+// Token management - Secure implementation
 class TokenManager {
   private static instance: TokenManager;
   private refreshPromise: Promise<void> | null = null;
   private isRefreshing = false;
+  private accessToken: string | null = null; // Store access token in memory only
 
   static getInstance(): TokenManager {
     if (!TokenManager.instance) {
@@ -418,21 +419,24 @@ class TokenManager {
   }
 
   getAccessToken(): string | null {
-    return localStorage.getItem('accessToken');
+    return this.accessToken;
   }
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refreshToken');
+    // Refresh token is now stored in httpOnly cookie, not accessible via JavaScript
+    // Return a placeholder to indicate cookie-based storage
+    return 'cookie-based';
   }
 
-  setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+  setTokens(accessToken: string, refreshToken?: string): void {
+    this.accessToken = accessToken;
+    // Refresh token is now handled by httpOnly cookie via backend
+    // We don't need to store it in localStorage anymore
   }
 
   clearTokens(): void {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    this.accessToken = null;
+    // Refresh token cookie will be cleared via logout endpoint
   }
 
   async refreshAccessToken(): Promise<boolean> {

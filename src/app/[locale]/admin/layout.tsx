@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from '@/navigation';
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { tokenManager } from '@/lib/api';
 
 export const runtime = 'edge';
 
@@ -103,8 +104,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           <div className="mt-6 pt-6 border-t border-border">
             <button
-              onClick={() => {
+              onClick={async () => {
+                try {
+                  // Call logout endpoint to clear cookies
+                  await fetch('/api/v1/users/auth/logout/', {
+                    method: 'POST',
+                    credentials: 'include', // Include cookies
+                  });
+                } catch (error) {
+                  console.error('Logout error:', error);
+                }
+
+                // Clear local data
                 localStorage.clear();
+                tokenManager.clearTokens();
+
+                // Redirect to signin
                 router.push('/signin');
               }}
               className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-red-50 hover:text-red-700 transition-colors text-red-600 w-full text-left"
