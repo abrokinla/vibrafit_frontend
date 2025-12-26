@@ -8,6 +8,7 @@ import { SidebarProvider, Sidebar, SidebarTrigger, SidebarInset } from '@/compon
 import UserSidebarContent from '@/components/user/user-sidebar-content';
 import EmailVerificationBanner from '@/components/EmailVerificationBanner';
 import { useEffect, useState } from 'react';
+import { tokenManager, apiUrl } from '@/lib/api';
 
 interface User {
   id: number;
@@ -23,7 +24,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = tokenManager.getAccessToken();
         const userId = localStorage.getItem('userId');
 
         if (!token || !userId) {
@@ -31,7 +32,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
           return;
         }
 
-        const response = await fetch(`/api/v1/users/${userId}/`, {
+        const response = await fetch(apiUrl(`/users/${userId}/`), {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

@@ -10,10 +10,10 @@ import { ThemeSwitcher } from '@/components/theme-switcher';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // Add these API functions
-import { apiUrl } from '@/lib/api';
+import { apiUrl, tokenManager } from '@/lib/api';
 
 async function getAuthHeaders() {
-  const token = localStorage.getItem('accessToken');
+  const token = tokenManager.getAccessToken();
   if (!token) throw new Error('NO_CREDENTIALS');
   return {
     'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const token = typeof window !== 'undefined' ? tokenManager.getAccessToken() : null;
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
     setUserRole(role);
 

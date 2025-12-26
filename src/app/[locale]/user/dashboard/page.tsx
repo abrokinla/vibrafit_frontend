@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react";
-import { getUserData, fetchCombinedProfile, UserData, CombinedProfileData, LoggedMeal, DailyLog, Activity } from '@/lib/api';
+import { getUserData, fetchCombinedProfile, UserData, CombinedProfileData, LoggedMeal, DailyLog, Activity, tokenManager } from '@/lib/api';
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
@@ -20,8 +20,8 @@ import { uploadProgressPhoto } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://vibrafit.onrender.com';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
 function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
@@ -156,7 +156,7 @@ export default function UserDashboardPage() {
       setIsLoadingUser(true);
       setIsLoadingFeed(true);
       
-      const token = localStorage.getItem('accessToken');
+      const token = tokenManager.getAccessToken();
       if (!token) {
         router.push('/signin');
         return;
@@ -208,7 +208,7 @@ export default function UserDashboardPage() {
   useEffect(() => {
     if (!isClient) return; 
     
-    const token = localStorage.getItem('accessToken');
+    const token = tokenManager.getAccessToken();
     if (!token) return;
 
     (async () => {
@@ -227,7 +227,7 @@ export default function UserDashboardPage() {
   useEffect(() => {
     if (!isClient) return; 
     
-    const token = localStorage.getItem('accessToken');
+    const token = tokenManager.getAccessToken();
     if (!token) return;
 
     (async () => {
@@ -243,7 +243,7 @@ export default function UserDashboardPage() {
   const handleCancelSubscription = async () => {
     if (!subscriptionId || !isClient) return;
     
-    const token = localStorage.getItem('accessToken');
+    const token = tokenManager.getAccessToken();
     if (!token) return;
     
     try {

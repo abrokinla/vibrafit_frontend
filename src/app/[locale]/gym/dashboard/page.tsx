@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, UserCheck, BarChart, Settings, Building, Loader2 } from "lucide-react";
 import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
-import { fetchMyGyms, GymData, getUserData } from '@/lib/api';
+import { fetchMyGyms, GymData, getUserData, tokenManager } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from '@/navigation';
 import GymOnboardingModal from '@/components/gym/onboarding-modal';
@@ -32,7 +32,7 @@ export default function GymDashboardPage() {
   useEffect(() => {
     const loadData = async () => {
       setIsLoadingUser(true);
-      const token = localStorage.getItem('accessToken');
+      const token = tokenManager.getAccessToken();
       if (!token) {
         router.push('/signin');
         return;

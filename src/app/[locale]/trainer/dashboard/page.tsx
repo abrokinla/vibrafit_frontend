@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import OnboardingModal from '@/components/trainer/onboarding-modal';
 import TrainerRecentActivityFeed from '@/components/trainer/TrainerRecentActivityFeed';
 import { useToast } from "@/hooks/use-toast";
-import { getUserData, UserData, fetchPendingSubscriptions, fetchConversations, fetchActiveClientCount } from '@/lib/api';
+import { getUserData, UserData, fetchPendingSubscriptions, fetchConversations, fetchActiveClientCount, tokenManager } from '@/lib/api';
 import { useTranslations } from 'next-intl';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -46,14 +46,14 @@ interface TrainerData {
 // Updated API function specifically for trainer unread messages
 async function getTrainerUnreadMessageCount(): Promise<number> {
   try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const token = tokenManager.getAccessToken();
     if (!token) throw new Error('NO_CREDENTIALS');
-    
+
     const headers = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     };
-    
+
   const res = await fetch(apiUrl('/users/messages/unread_count/'), { headers });
     if (!res.ok) {
       return 0;
@@ -68,14 +68,14 @@ async function getTrainerUnreadMessageCount(): Promise<number> {
 // Get detailed conversation data with unread counts
 async function getConversationsWithUnreadCounts(): Promise<ConversationsResponse> {
   try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const token = tokenManager.getAccessToken();
     if (!token) throw new Error('NO_CREDENTIALS');
-    
+
     const headers = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     };
-    
+
   const res = await fetch(apiUrl('/users/messages/conversations/'), { headers });
     if (!res.ok) {
       // Return consistent structure even on error
@@ -141,7 +141,7 @@ export default function TrainerDashboardPage() {
 
     const loadData = async () => {
       setIsLoadingUser(true);
-      const token = localStorage.getItem('accessToken');
+      const token = tokenManager.getAccessToken();
       if (!token) {
         router.push('/signin');
         return;

@@ -1,7 +1,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useWebSocket } from './useWebSocket';
-import { getAuthHeaders, apiUrl } from '@/lib/api';
+import { getAuthHeaders, apiUrl, tokenManager } from '@/lib/api';
 
 interface NotificationData {
   type: 'unread_count_update' | 'notification';
@@ -69,6 +69,12 @@ export function useNotifications() {
 
       const pollUnreadCount = async () => {
         try {
+          // Check if we have valid authentication before making API calls
+          if (!tokenManager.getAccessToken()) {
+            console.log('Skipping notification poll - no valid access token');
+            return;
+          }
+
           const headers = await getAuthHeaders();
           const response = await fetch(apiUrl('/users/messages/unread-count/'), {
             headers,
@@ -77,8 +83,28 @@ export function useNotifications() {
           if (response.ok) {
             const data = await response.json();
             setUnreadCount(data.count || 0);
+          } else if (response.status === 401) {
+            // Token might be expired, try to refresh
+            console.log('Token expired, attempting refresh...');
+            const refreshed = await tokenManager.refreshAccessToken();
+            if (refreshed) {
+              // Retry with new token
+              const retryHeaders = await getAuthHeaders();
+              const retryResponse = await fetch(apiUrl('/users/messages/unread-count/'), {
+                headers: retryHeaders,
+              });
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json();
+                setUnreadCount(retryData.count || 0);
+              }
+            }
           }
         } catch (error) {
+          // Handle NO_CREDENTIALS error gracefully
+          if (error instanceof Error && error.message === 'NO_CREDENTIALS') {
+            console.log('User not authenticated, skipping notification poll');
+            return;
+          }
           console.error('HTTP polling failed:', error);
         }
       };

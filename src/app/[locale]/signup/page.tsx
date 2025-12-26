@@ -72,16 +72,78 @@ export default function SignUpPage() {
         }
       }
 
+      console.log('Sending registration request:', {
+        url: apiUrl('/users/register/'),
+        payload: registrationPayload
+      });
+
       const regRes = await fetch(apiUrl('/users/register/'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(registrationPayload),
       });
 
+      console.log('Registration response:', {
+        status: regRes.status,
+        statusText: regRes.statusText,
+        ok: regRes.ok
+      });
+
       if (!regRes.ok) {
-        const errorData = await regRes.json().catch(() => ({ detail: t('errorRegisterFailed') }));
-        const errorMessage = errorData.email?.[0] || errorData.password?.[0] || errorData.role?.[0] || errorData.detail;
-        throw new Error(errorMessage || t('errorRegisterFailed'));
+        let errorMessage = '';
+
+        try {
+          const errorData = await regRes.json();
+
+          // Handle different error response formats
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.email && Array.isArray(errorData.email)) {
+            errorMessage = `Email: ${errorData.email.join(', ')}`;
+          } else if (errorData.password && Array.isArray(errorData.password)) {
+            errorMessage = `Password: ${errorData.password.join(', ')}`;
+          } else if (errorData.role && Array.isArray(errorData.role)) {
+            errorMessage = `Role: ${errorData.role.join(', ')}`;
+          } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+            errorMessage = errorData.non_field_errors.join(', ');
+          } else if (typeof errorData === 'object') {
+            // Generic object error handling
+            const errorFields = Object.keys(errorData);
+            if (errorFields.length > 0) {
+              errorMessage = errorFields.map(field => {
+                const value = errorData[field];
+                if (Array.isArray(value)) {
+                  return `${field}: ${value.join(', ')}`;
+                }
+                return `${field}: ${value}`;
+              }).join('; ');
+            } else {
+              errorMessage = 'Registration failed with unknown error format';
+            }
+          } else {
+            errorMessage = String(errorData);
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text response
+          try {
+            const textResponse = await regRes.text();
+            errorMessage = textResponse || `HTTP ${regRes.status}: ${regRes.statusText}`;
+          } catch (textError) {
+            errorMessage = `HTTP ${regRes.status}: ${regRes.statusText}`;
+          }
+        }
+
+        // Log the full error for debugging
+        console.error('Registration failed:', {
+          status: regRes.status,
+          statusText: regRes.statusText,
+          errorMessage,
+          url: regRes.url
+        });
+
+        throw new Error(errorMessage || `Registration failed (HTTP ${regRes.status})`);
       }
       const user = await regRes.json();
       localStorage.setItem('userId', user.id);

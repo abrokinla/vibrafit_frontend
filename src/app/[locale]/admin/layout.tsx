@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = tokenManager.getAccessToken();
         const userRole = localStorage.getItem('userRole');
 
         if (!token || userRole !== 'admin') {
@@ -29,6 +29,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Auth check failed:', error);
         localStorage.clear();
+        tokenManager.clearTokens();
         router.push('/signin');
       } finally {
         setIsLoading(false);
