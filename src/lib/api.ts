@@ -501,7 +501,15 @@ export { tokenManager };
 export async function getAuthHeaders(): Promise<{ 'Content-Type': string; Authorization: string }> {
   let token = tokenManager.getAccessToken();
   if (!token) {
-    throw new Error('NO_CREDENTIALS');
+    // Try to refresh the token if we don't have one
+    const refreshed = await tokenManager.refreshAccessToken();
+    if (!refreshed) {
+      throw new Error('NO_CREDENTIALS');
+    }
+    token = tokenManager.getAccessToken();
+    if (!token) {
+      throw new Error('NO_CREDENTIALS');
+    }
   }
 
   return {
@@ -972,8 +980,7 @@ export async function uploadPostMedia(file: File, mediaType: 'image' | 'video' =
 }
 
 export async function fetchPublicUserProfile(userId: string): Promise<PublicProfileData | null> {
-  const token = localStorage.getItem('accessToken');
-  if (!userId || !token) return null;
+  if (!userId) return null;
 
   try {
     const headers = await getAuthHeaders();
@@ -1549,15 +1556,89 @@ export async function completeGymOnboarding(
   }
 }
 
-// --- Forgot Password ---
+// --- Password Reset ---
 export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
-  // MOCK: In a real app, this would call your backend endpoint.
-  // The backend would handle token generation and sending the email.
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    const response = await fetch(apiUrl('/users/password-reset/request/'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
 
-  // Simulate success regardless of whether the email exists to prevent email enumeration.
-  return {
-    success: true,
-    message: "If an account with this email exists, a password reset link has been sent.",
-  };
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        success: true,
+        message: data.detail || "If an account with this email exists, a password reset link has been sent.",
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.detail || "Failed to send password reset email.",
+      };
+    }
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    return {
+      success: false,
+      message: "Network error. Please try again.",
+    };
+  }
+}
+
+export async function validatePasswordResetToken(token: string): Promise<{ valid: boolean; email?: string }> {
+  try {
+    const response = await fetch(apiUrl(`/users/password-reset/validate/?token=${encodeURIComponent(token)}`));
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        valid: data.valid,
+        email: data.email,
+      };
+    } else {
+      return { valid: false };
+    }
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return { valid: false };
+  }
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(apiUrl('/users/password-reset/confirm/'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token,
+        password: newPassword,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        success: true,
+        message: data.detail || "Password reset successfully.",
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        message: errorData.detail || "Failed to reset password.",
+      };
+    }
+  } catch (error) {
+    console.error('Password reset confirmation error:', error);
+    return {
+      success: false,
+      message: "Network error. Please try again.",
+    };
+  }
 }

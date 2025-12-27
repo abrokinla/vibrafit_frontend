@@ -9,19 +9,13 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { getAuthHeaders, apiUrl } from "@/lib/api";
 
 // Type for metric fetched from backend
 type WeightMetric = {
   value: number;
   recorded_at: string;
 };
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION;
-
-function apiUrl(path: string) {
-  return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
-}
 
 export default function ProgressOverviewChart() {
   const t = useTranslations('ProgressOverviewChart');
@@ -37,18 +31,21 @@ export default function ProgressOverviewChart() {
   } satisfies ChartConfig;
 
   useEffect(() => {
-    
+
     async function fetchWeightData() {
       try {
-        const token = localStorage.getItem('accessToken');
+        // Use the proper token management instead of direct localStorage access
+        const headers = await getAuthHeaders();
         const res = await fetch(apiUrl('/users/metrics/?type=weight'), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
         });
 
         if (!res.ok) {
+          // If unauthorized, don't throw error - just show empty chart
+          if (res.status === 401) {
+            setChartData([]);
+            return;
+          }
           throw new Error(`Failed to fetch: ${res.status}`);
         }
 
@@ -62,6 +59,8 @@ export default function ProgressOverviewChart() {
         setChartData(formatted);
       } catch (err) {
         console.error("Failed to fetch weight data:", err);
+        // On error, show empty chart instead of failing
+        setChartData([]);
       } finally {
         setIsLoading(false);
       }
