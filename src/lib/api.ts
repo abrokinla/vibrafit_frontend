@@ -430,8 +430,6 @@ class TokenManager {
 
   setTokens(accessToken: string, refreshToken?: string): void {
     this.accessToken = accessToken;
-    // Refresh token is now handled by httpOnly cookie via backend
-    // We don't need to store it in localStorage anymore
   }
 
   clearTokens(): void {
@@ -472,7 +470,7 @@ class TokenManager {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(apiUrl('/auth/token/refresh/'), {
+    const response = await fetch(apiUrl('/users/auth/token/refresh/'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
