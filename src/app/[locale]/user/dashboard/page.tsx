@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input"; 
 import { Label } from "@/components/ui/label";
 import { Scale, Dumbbell, Apple, UserPlus, Camera, UploadCloud, Play } from "lucide-react";
-import { getUserData, fetchCombinedProfile, UserData, CombinedProfileData, LoggedMeal, DailyLog, Activity, tokenManager } from '@/lib/api';
+import { getUserData, fetchCombinedProfile, UserData, CombinedProfileData, LoggedMeal, DailyLog, Activity, tokenManager, fetchWalletSummary, fetchCreditPackages, WalletSummary } from '@/lib/api';
 import AiMotivationCard from '@/components/user/ai-motivation-card';
 import ProgressOverviewChart from '@/components/user/progress-overview-chart';
 import RecentActivityFeed from '@/components/user/recent-activity-feed';
@@ -26,7 +26,7 @@ function apiUrl(path: string) {
   return `${API_BASE_URL}/api/${API_VERSION}${path.startsWith('/') ? path : '/' + path}`;
 }
 
-export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
+async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
   const res = await fetch(apiUrl('/logged-meals/'), {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -41,7 +41,7 @@ export async function fetchMealsFromApi(token: string): Promise<LoggedMeal[]> {
   return res.json();
 }
 
-export async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
+async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
   const res = await fetch(apiUrl('/daily-logs/'), {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -56,7 +56,7 @@ export async function fetchDailyLogs(token: string): Promise<DailyLog[]> {
   return res.json();
 }
 
-export async function fetchRecentActivities(token: string, limit = 10): Promise<Activity[]> {
+async function fetchRecentActivities(token: string, limit = 10): Promise<Activity[]> {
   const [meals, logs] = await Promise.all([
     fetchMealsFromApi(token),
     fetchDailyLogs(token),
@@ -119,6 +119,12 @@ export default function UserDashboardPage() {
 
    const [subscriptionStatus, setSubscriptionStatus] = useState<'none' | 'pending' | 'active' | 'declined' | 'expired'>('none');
    const [subscriptionId, setSubscriptionId] = useState<number | null>(null);
+   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
+   const [packageCount, setPackageCount] = useState<number>(0);
+
+   const monetizationEnabled = process.env.NEXT_PUBLIC_MONETIZATION_ENABLED === 'true';
+   const freeAccessMode = process.env.NEXT_PUBLIC_FREE_ACCESS_MODE !== 'false';
+   const isPaidSubscriptionEnabled = monetizationEnabled && !freeAccessMode;
 
    const beforeFileInputRef = useRef<HTMLInputElement>(null);
    const currentFileInputRef = useRef<HTMLInputElement>(null);
@@ -213,11 +219,17 @@ export default function UserDashboardPage() {
 
     (async () => {
       try {
-        const meals = await fetchMealsFromApi(token);
-        setMealHistory(meals);
+        const [meals, logs, wallet, packages] = await Promise.all([
+          fetchMealsFromApi(token),
+          fetchDailyLogs(token),
+          fetchWalletSummary().catch(() => null),
+          fetchCreditPackages().catch(() => []),
+        ]);
 
-        const logs = await fetchDailyLogs(token);
+        setMealHistory(meals);
         setDailyLogs(logs);
+        setWalletSummary(wallet);
+        setPackageCount(packages.length);
       } catch (err) {
         console.error("Failed to fetch data:", err);
       }
@@ -382,6 +394,21 @@ export default function UserDashboardPage() {
               {t('goToWorkoutsButton')}
             </Button>
           </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Credits & Access</CardTitle>
+          <CardDescription>
+            {isPaidSubscriptionEnabled
+              ? 'Wallet and billing are enabled for trainer subscriptions.'
+              : 'MVP is currently in free access mode. Subscribing to trainers does not require credits yet.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p><span className="font-medium">Wallet Balance:</span> {walletSummary?.balance ?? 0} credits</p>
+          <p><span className="font-medium">Available Credit Packages:</span> {packageCount}</p>
         </CardContent>
       </Card>
 
@@ -580,6 +607,11 @@ export default function UserDashboardPage() {
                 <div className="text-sm text-muted-foreground mb-2">
                   {t('getPersonalizedGuidance')}
                 </div>
+                {!isPaidSubscriptionEnabled && (
+                  <p className="text-xs text-emerald-600 mb-2">
+                    Free access beta: no payment required right now.
+                  </p>
+                )}
                 <Link href="/user/find-trainer" passHref>
                   <Button size="sm" className="w-full">
                     {t('browseTrainersButton')}
