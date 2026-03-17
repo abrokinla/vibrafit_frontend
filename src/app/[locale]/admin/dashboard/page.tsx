@@ -3,93 +3,26 @@ export const runtime = 'edge';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, BarChart3, TrendingUp, Activity, Target, MessageSquare, Eye, Download } from "lucide-react";
+import { Users, UserCheck, BarChart3, TrendingUp, Target, MessageSquare } from "lucide-react";
 import Link from 'next/link';
-
-const adminData = {
-  totalUsers: 1250,
-  totalTrainers: 45,
-  activeClients: 890,
-  activeSubscriptions: 980,
-  totalGyms: 12,
-  monthlyRevenue: 14700,
-  userGrowth: '+12%',
-  trainerEngagement: '87%',
-};
 
 export default function AdminDashboardPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-2">Welcome back! Here's your platform overview.</p>
+          <p className="text-muted-foreground mt-2">
+            Admin home has been cleaned up to remove hard-coded metrics. Use the sections below for live management pages.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
-          <Button size="sm">Generate Analytics</Button>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Users"
-          value={adminData.totalUsers.toLocaleString()}
-          change={adminData.userGrowth}
-          icon={Users}
-          trend="up"
-        />
-        <StatCard
-          title="Total Trainers"
-          value={adminData.totalTrainers}
-          change="+3 this month"
-          icon={UserCheck}
-          trend="up"
-        />
-        <StatCard
-          title="Active Clients"
-          value={adminData.activeClients}
-          change={adminData.trainerEngagement}
-          icon={Activity}
-          trend="up"
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={`$${adminData.monthlyRevenue.toLocaleString()}`}
-          change="+$2,500 from last month"
-          icon={TrendingUp}
-          trend="up"
-        />
-      </div>
-
-      {/* Secondary Metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          title="Active Subscriptions"
-          value={adminData.activeSubscriptions}
-          change={`${((adminData.activeSubscriptions / adminData.totalUsers) * 100).toFixed(1)}% conversion`}
-          icon={BarChart3}
-        />
-        <StatCard
-          title="Partner Gyms"
-          value={adminData.totalGyms}
-          change="3 trial, 9 active"
-          icon={Target}
-        />
-        <StatCard
-          title="Platform Views"
-          value="45.2k"
-          change="+18% last week"
-          icon={Eye}
-        />
+        <Button asChild size="sm">
+          <Link href="/admin/users">Open User Management</Link>
+        </Button>
       </div>
 
       {/* Management Sections */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* User Management */}
         <Card>
           <CardHeader>
@@ -113,7 +46,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="User Activity"
               description="Monitor user engagement and activity"
-              href="/admin/logs"
+              href="/admin/engagement"
             />
             <ManagementOption
               label="Banned/Inactive Users"
@@ -141,7 +74,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Trainer Performance"
               description="View trainer ratings and reviews"
-              href="/admin/trainers/performance"
+              href="/admin/trainers"
             />
             <ManagementOption
               label="Client-Trainer Subscriptions"
@@ -151,7 +84,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Verify Certifications"
               description="Review trainer credentials"
-              href="/admin/trainers/certifications"
+              href="/admin/trainers"
             />
           </CardContent>
         </Card>
@@ -169,22 +102,22 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Training Plans"
               description="View and manage all training plans"
-              href="/admin/plans"
+              href="/admin/engagement"
             />
             <ManagementOption
               label="Nutrition Plans"
               description="Manage nutrition plans and meals"
-              href="/admin/nutrition"
+              href="/admin/engagement"
             />
             <ManagementOption
               label="User Goals"
               description="Monitor and manage user fitness goals"
-              href="/admin/goals"
+              href="/admin/engagement"
             />
             <ManagementOption
               label="User Metrics"
               description="Track user health metrics data"
-              href="/admin/metrics"
+              href="/admin/engagement"
             />
           </CardContent>
         </Card>
@@ -207,7 +140,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Conversations"
               description="Monitor active conversations"
-              href="/admin/conversations"
+              href="/admin/messages"
             />
             <ManagementOption
               label="Timeline Posts"
@@ -217,7 +150,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Support Tickets"
               description="Handle user support requests"
-              href="/admin/support"
+              href="/admin/messages"
             />
           </CardContent>
         </Card>
@@ -240,17 +173,17 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Gym Members"
               description="View gym membership details"
-              href="/admin/gym-members"
+              href="/admin/gyms"
             />
             <ManagementOption
               label="Subscriptions & Billing"
               description="Manage gym subscriptions"
-              href="/admin/gyms/billing"
+              href="/admin/subscriptions"
             />
             <ManagementOption
               label="Gym Staff"
               description="Manage gym trainers and staff"
-              href="/admin/gyms/staff"
+              href="/admin/trainers"
             />
           </CardContent>
         </Card>
@@ -268,7 +201,7 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Platform Analytics"
               description="View comprehensive platform metrics"
-              href="/admin/analytics"
+              href="/admin/engagement"
             />
             <ManagementOption
               label="User Engagement"
@@ -278,88 +211,26 @@ export default function AdminDashboardPage() {
             <ManagementOption
               label="Revenue Reports"
               description="View subscription and revenue data"
-              href="/admin/reports/revenue"
+              href="/admin/subscriptions"
             />
             <ManagementOption
               label="System Health"
               description="Monitor platform performance"
-              href="/admin/system"
+              href="/admin/settings"
             />
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest platform activities</CardDescription>
+          <CardTitle>Note</CardTitle>
+          <CardDescription>
+            This dashboard is now a navigation hub only. Detailed data should be viewed from each dedicated admin page.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <ActivityItem
-              action="New user registration"
-              user="John Doe"
-              time="2 hours ago"
-              icon="👤"
-            />
-            <ActivityItem
-              action="Trainer certified"
-              user="Sarah Smith"
-              time="5 hours ago"
-              icon="✅"
-            />
-            <ActivityItem
-              action="New gym onboarded"
-              user="FitnessPro Gym"
-              time="1 day ago"
-              icon="🏢"
-            />
-            <ActivityItem
-              action="Subscription expired"
-              user="Client - Mike Johnson"
-              time="1 day ago"
-              icon="⏰"
-            />
-            <ActivityItem
-              action="System maintenance completed"
-              user="System Admin"
-              time="2 days ago"
-              icon="⚙️"
-            />
-          </div>
-        </CardContent>
       </Card>
     </div>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  change,
-  icon: Icon,
-  trend = 'neutral',
-}: {
-  title: string;
-  value: string | number;
-  change: string;
-  icon: any;
-  trend?: 'up' | 'down' | 'neutral';
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="w-4 h-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className={`text-xs mt-1 ${trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}>
-          {change}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -379,27 +250,5 @@ function ManagementOption({
         <div className="text-xs text-muted-foreground mt-1">{description}</div>
       </div>
     </Link>
-  );
-}
-
-function ActivityItem({
-  action,
-  user,
-  time,
-  icon,
-}: {
-  action: string;
-  user: string;
-  time: string;
-  icon: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
-      <div className="text-xl">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm">{action}</p>
-        <p className="text-xs text-muted-foreground mt-1">{user} • {time}</p>
-      </div>
-    </div>
   );
 }

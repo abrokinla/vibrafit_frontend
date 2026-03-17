@@ -260,6 +260,8 @@ export interface GymData {
   subscription_end: string | null;
   created_at: string;
   updated_at: string;
+  owner_name?: string;
+  owner_email?: string;
 }
 
 export interface GymMemberData {
@@ -325,6 +327,57 @@ export interface CreditPackageData {
   price_amount: string;
   currency: string;
   is_active: boolean;
+}
+
+export interface AdminSummaryData {
+  total_users: number;
+  total_trainers: number;
+  active_clients: number;
+  active_subscriptions: number;
+  total_gyms: number;
+  trial_gyms: number;
+  active_gyms: number;
+  total_wallet_credits: number;
+  recent_activity: Array<{
+    type: string;
+    label: string;
+    subject: string;
+    timestamp: string;
+  }>;
+}
+
+export interface AdminTrainerData {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  experience_years: number | null;
+  rating: number;
+  specializations: string;
+  certifications: string;
+  bio: string;
+  active_clients?: number;
+  gym_employed_by?: { id: number; name: string } | null;
+}
+
+export interface AdminSubscriptionData {
+  id: number;
+  client: {
+    id: number;
+    email: string;
+    name: string;
+  };
+  trainer_details?: {
+    id: number;
+    email: string;
+    name: string;
+  };
+  trainer?: number;
+  status: 'pending' | 'active' | 'declined' | 'expired';
+  start_date?: string | null;
+  end_date?: string | null;
+  requested_at: string;
 }
 
 export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
@@ -1699,4 +1752,83 @@ export async function fetchCreditPackages(): Promise<CreditPackageData[]> {
     throw new Error(error.detail || error.error || 'Failed to fetch credit packages');
   }
   return response.json();
+}
+
+// --- Admin API Functions ---
+export async function fetchAdminSummary(): Promise<AdminSummaryData> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/users/admin/summary/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch admin summary');
+  }
+  return response.json();
+}
+
+export async function fetchAdminUsers(params?: {
+  search?: string;
+  role?: string;
+  is_active?: boolean;
+}): Promise<UserData[]> {
+  const headers = await getAuthHeaders();
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.role && params.role !== 'all') query.set('role', params.role);
+  if (typeof params?.is_active === 'boolean') query.set('is_active', String(params.is_active));
+
+  const response = await fetch(apiUrl(`/users/admin/users/${query.toString() ? `?${query.toString()}` : ''}`), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch admin users');
+  }
+  return response.json();
+}
+
+export async function fetchAdminTrainers(search?: string): Promise<AdminTrainerData[]> {
+  const headers = await getAuthHeaders();
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  const response = await fetch(apiUrl(`/users/admin/trainers/${query}`), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch admin trainers');
+  }
+  return response.json();
+}
+
+export async function fetchGymTrainers(gymId: number): Promise<AdminTrainerData[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl(`/users/gym/trainers/?gym_id=${gymId}`), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch gym trainers');
+  }
+  return response.json();
+}
+
+export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionData[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/users/subscriptions/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch subscriptions');
+  }
+  return response.json();
+}
+
+export async function fetchAdminGyms(): Promise<GymData[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/gyms/gyms/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch gyms');
+  }
+  return response.json();
+}
+
+export async function fetchAdminPosts(): Promise<Post[]> {
+  return fetchTimelinePosts();
+}
+
+export async function fetchAdminConversations(): Promise<Conversation[]> {
+  return fetchConversations();
 }
