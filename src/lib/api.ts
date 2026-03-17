@@ -298,6 +298,35 @@ export interface GymOnboardingData {
   };
 }
 
+// Billing-related types
+export interface WalletSummary {
+  id: number;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletHistoryItem {
+  id: number;
+  transaction_type: 'credit' | 'debit';
+  source: 'topup' | 'subscription' | 'refund' | 'adjustment' | 'payout';
+  amount: number;
+  balance_before: number;
+  balance_after: number;
+  reference: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface CreditPackageData {
+  id: number;
+  name: string;
+  credits: number;
+  price_amount: string;
+  currency: string;
+  is_active: boolean;
+}
+
 export async function fetchTodaysTrainerMeals(token: string): Promise<TrainerMeal[]> {
   const res = await fetch(apiUrl('/users/nutrition-plan/today/'), {
     headers: {
@@ -1639,4 +1668,35 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
       message: "Network error. Please try again.",
     };
   }
+}
+
+// --- Billing API Functions ---
+export async function fetchWalletSummary(): Promise<WalletSummary> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/users/billing/wallet/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch wallet summary');
+  }
+  return response.json();
+}
+
+export async function fetchWalletTransactions(): Promise<WalletHistoryItem[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/users/billing/transactions/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch wallet transactions');
+  }
+  return response.json();
+}
+
+export async function fetchCreditPackages(): Promise<CreditPackageData[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(apiUrl('/users/billing/packages/'), { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || error.error || 'Failed to fetch credit packages');
+  }
+  return response.json();
 }
